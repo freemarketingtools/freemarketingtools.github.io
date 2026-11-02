@@ -49,6 +49,15 @@ ship.
   Show only problems and Copy problem list. A 50,000-row feed checks in about a second, with the first
   300 rows drawn. Nothing is uploaded. Rules cite Google's help pages; the ALL-CAPS rule is a labelled
   estimate.
+- **Day 6 — Amazon listing checker.** Paste a brand, title, up to 5 bullets, a description and backend
+  search terms, and see what Amazon would reject or suppress before you publish. Live counters for every
+  field turn coral past the limit, with search terms counted in bytes (an accented letter costs 2) and a
+  title limit you can lower for stricter categories. Flags repeated title words, banned title characters
+  outside the brand, ALL-CAPS words, promotional, pricing and shipping talk, contact details, links,
+  repeated bullets, wasted search terms (the brand, words already used, punctuation, subjective words)
+  and banned claims (medical, FDA, pesticide-style, guarantees), each with the exact phrase highlighted
+  in place. A headline verdict and Copy problem list. Nothing is uploaded. Rules cite Amazon's Seller
+  Central pages; the bullet and description limits, ALL-CAPS rule and phrase lists are labelled estimates.
 - **The hub.** A brand column with a 10-segment progress bar, and a grid of all 10 days: shipped tools as cards with a screenshot, future days locked. A floating Made with Omniscio badge, the
   same one an Omniscio Share carries, and a link preview in the hub's own look that stays neutral for X.
 - **Phone-first.** Every page is checked at 390 px wide with no sideways scrolling.

@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Amazon listing checker</title>
+<meta name="description" content="Paste an Amazon listing and see what Amazon would reject or suppress before you publish: title, bullet, description and search term limits, banned characters, repeated words and banned claims.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../../shared/tokens.css">
+<style>
+  .tool { max-width: 1120px; margin: 0 auto; padding: var(--space-4) var(--space-3) var(--space-5); }
+  .top { margin-bottom: var(--space-3); }
+  .top h1 { font-size: clamp(2rem, 6vw, 3.1rem); line-height: 1.02; margin: var(--space-2) 0 var(--space-2); letter-spacing: -.035em; }
+  .top h1 span { color: var(--lime); }
+  .top p { margin: 0; max-width: 58ch; color: var(--muted); }
+
+  .layout { display: grid; gap: var(--space-3); grid-template-areas: "hero" "inputs" "context"; }
+  .layout > * { min-width: 0; }
+  @media (min-width: 980px) {
+    .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "inputs hero" "inputs context"; align-items: start; }
+  }
+
+  /* Inputs */
+  form { grid-area: inputs; display: grid; gap: var(--space-2); }
+  fieldset { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); margin: 0; padding: var(--space-2) var(--space-3) var(--space-1); min-width: 0; }
+  legend { padding: 0 6px; margin-left: -6px; }
+  .private { display: flex; align-items: center; gap: 8px; margin: 0 0 var(--space-1); color: var(--muted); font-size: .88rem; }
+  .private .dot { background: var(--lime); }
+  .field { display: grid; gap: 8px; padding: var(--space-2) 0; border-top: 1px solid var(--line); }
+  legend + .field, .private + .field { border-top: 0; }
+  .field label { font-weight: 600; font-size: .95rem; display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); }
+  .field input, .field textarea, .field select {
+    width: 100%; min-height: var(--tap); padding: 0 14px;
+    font: 500 .98rem var(--font); color: var(--text);
+    background: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+    transition: border-color .15s ease;
+  }
+  .field textarea { padding: 11px 14px; line-height: 1.5; resize: vertical; min-height: 72px; field-sizing: content; }
+  .field input:hover, .field textarea:hover, .field select:hover { border-color: var(--faint); }
+  .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--lime); outline: none; box-shadow: 0 0 0 3px var(--lime-soft); }
+  .field [data-over="true"] { border-color: var(--coral); }
+  .count { font: 600 .78rem var(--mono); color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .count[data-over="true"] { color: var(--coral); }
+  .limit { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--muted); font-size: .85rem; }
+  .limit label { font-weight: 500; font-size: .85rem; color: var(--text); }
+  .limit select { width: auto; min-height: 38px; padding: 0 10px; color: var(--text); cursor: pointer; }
+
+  /* Result */
+  .hero { grid-area: hero; padding: var(--space-3); overflow: hidden; position: relative; }
+  .hero::before { content: ""; position: absolute; inset: -40% -20% auto auto; width: 320px; height: 320px; border-radius: 50%; background: radial-gradient(var(--lime-soft), transparent 70%); pointer-events: none; }
+  .hero[data-state="reject"]::before { background: radial-gradient(var(--coral-soft), transparent 70%); }
+  .hero[data-state="weak"]::before { background: radial-gradient(var(--amber-soft), transparent 70%); }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); position: relative; }
+  .chip { font: 600 12px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; padding: 7px 10px; border-radius: 999px; color: var(--lime-ink); background: var(--lime); white-space: nowrap; }
+  .chip[data-state="reject"] { background: var(--coral); color: #1a0705; }
+  .chip[data-state="weak"] { background: var(--amber); color: #1a1205; }
+  .headline { position: relative; margin: var(--space-3) 0 var(--space-1); font-size: clamp(2.2rem, 6vw, 3.2rem); font-weight: 750; line-height: 1.04; letter-spacing: -.035em; overflow-wrap: anywhere; }
+  .hero[data-state="ok"] .headline { color: var(--lime); }
+  .sub { position: relative; margin: 0; color: var(--muted); font-size: .95rem; }
+  .sub:empty { display: none; }
+  .checks { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-1); position: relative; }
+  .check { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: 4px var(--space-2); padding: 10px 12px; border-radius: var(--radius-sm); background: var(--panel-2); border: 1px solid var(--line); font-size: .9rem; line-height: 1.4; }
+  .check .where { grid-column: 2; font: 600 11px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+  .check .why { grid-column: 2; overflow-wrap: anywhere; }
+  .check .dot { grid-row: 1 / span 2; margin-top: 3px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--coral); flex: none; display: inline-block; }
+  [data-level="weak"] .dot, .dot.weak { background: var(--amber); }
+  .clear { display: flex; align-items: center; gap: 8px; color: var(--lime); font-size: .92rem; margin: var(--space-3) 0 0; position: relative; }
+  .clear .dot { background: var(--lime); }
+  .key { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); color: var(--faint); font-size: .82rem; margin: var(--space-3) 0; position: relative; }
+  .key span { display: inline-flex; align-items: center; gap: 6px; }
+
+  .btn { min-height: var(--tap); padding: 0 20px; border-radius: var(--radius-sm); border: 1px solid var(--lime); background: var(--lime); color: var(--lime-ink); font: 650 .95rem var(--font); cursor: pointer; }
+  .btn:hover { filter: brightness(1.06); }
+  .btn:disabled { opacity: .4; cursor: default; filter: none; }
+  .btn[data-done="true"] { background: var(--panel-2); color: var(--lime); }
+  .actions { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+  .actions .btn { flex: 1 1 180px; }
+  .status { color: var(--muted); font-size: .9rem; }
+  .status:empty { display: none; }
+  .manual { position: relative; width: 100%; margin-top: var(--space-2); padding: 10px 12px; font: 500 .85rem/1.5 var(--mono); color: var(--text); background: var(--ink); border: 1px solid var(--lime); border-radius: var(--radius-sm); resize: vertical; }
+
+  /* Matches in context */
+  .context { grid-area: context; padding: var(--space-3); }
+  .context .label { display: block; margin-bottom: var(--space-2); }
+  .snippets { display: grid; gap: var(--space-2); }
+  .snippet { margin: 0; }
+  .snippet .where { display: block; margin-bottom: 4px; font: 600 11px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+  .snippet p { margin: 0; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--ink); border: 1px solid var(--line); font-size: .9rem; line-height: 1.6; color: var(--muted); overflow-wrap: anywhere; white-space: pre-wrap; }
+  mark { color: #1a0705; background: var(--coral); border-radius: 4px; padding: 0 2px; }
+  mark[data-level="weak"] { color: #1a1205; background: var(--amber); }
+  .none { margin: 0; color: var(--faint); font-size: .9rem; }
+
+  .notes { color: var(--muted); font-size: .88rem; line-height: 1.6; padding: var(--space-3); margin-top: var(--space-3); }
+  .notes p { margin: 0 0 var(--space-2); }
+  .notes p:last-child { margin-bottom: 0; }
+  .notes b { color: var(--text); }
+
+  footer { margin-top: var(--space-4); }
+  [hidden] { display: none !important; }
+  @media (max-width: 520px) { .hero, .context { padding: var(--space-3) var(--space-2) var(--space-2); } fieldset { padding: var(--space-2) var(--space-2) var(--space-1); } }
+</style>
+</head>
+<body>
+<main class="tool">
+  <header class="top">
+    <span class="label">Free tool · Day 6 of 10</span>
+    <h1>Amazon listing <span>checker</span></h1>
+    <p>Paste your listing and see, in one view, what Amazon would reject or suppress before you publish it: limits, banned characters, repeated words, wasted search terms and claims Amazon doesn’t allow.</p>
+  </header>
+
+  <div class="layout">
+    <form id="listing" novalidate autocomplete="off">
+      <fieldset>
+        <legend class="label">Title</legend>
+        <p class="private"><span class="dot"></span>Checked in your browser. Nothing is uploaded.</p>
+        <div class="field"><label for="brand">Brand name</label><input id="brand" spellcheck="false"></div>
+        <div class="field">
+          <label for="title">Title <span class="count" id="count-title"></span></label>
+          <textarea id="title" rows="3"></textarea>
+          <div class="limit"><label for="title-limit">Title limit</label><select id="title-limit"></select><span>Most categories allow 200. Check your category’s style guide.</span></div>
+        </div>
+      </fieldset>
+      <fieldset id="bullets"><legend class="label">Bullet points · up to 5</legend></fieldset>
+      <fieldset>
+        <legend class="label">Description</legend>
+        <div class="field"><label for="description">Product description <span class="count" id="count-description"></span></label><textarea id="description" rows="5"></textarea></div>
+      </fieldset>
+      <fieldset>
+        <legend class="label">Backend search terms</legend>
+        <div class="field"><label for="searchTerms">Search terms <span class="count" id="count-searchTerms"></span></label><textarea id="searchTerms" rows="3" spellcheck="false"></textarea></div>
+      </fieldset>
+    </form>
+
+    <section class="hero panel" id="hero" data-state="ok" aria-label="Result">
+      <div class="row">
+        <span class="label">Result</span>
+        <span class="chip" id="chip"></span>
+      </div>
+      <p class="headline" id="headline" aria-live="polite"></p>
+      <p class="sub" id="sub"></p>
+      <ul class="checks" id="checks" aria-label="Checks"></ul>
+      <p class="clear" id="clear" hidden><span class="dot"></span>Every check passed.</p>
+      <p class="key"><span><span class="dot"></span>Amazon rejects or suppresses it</span><span><span class="dot weak"></span>Weakens the listing</span></p>
+      <div class="actions">
+        <button type="button" class="btn" id="copy" title="Copy problem list (Ctrl+Enter)">Copy problem list</button>
+        <span class="status" id="copy-status" aria-live="polite"></span>
+      </div>
+      <textarea class="manual" id="copy-manual" rows="5" readonly hidden aria-label="Problem list, selected for copying"></textarea>
+    </section>
+
+    <section class="context panel" aria-label="Matches in context">
+      <span class="label">Matches in context</span>
+      <div class="snippets" id="context"></div>
+    </section>
+  </div>
+
+  <section class="notes panel">
+    <p><b>Where the rules come from.</b> Amazon’s <a href="https://sellercentral.amazon.com/help/hub/reference/external/GYTR6SYGFA5E3EQC" target="_blank" rel="noopener">product title requirements</a> (200 characters for most categories, no ! $ ? _ { } ^ ¬ ¦ unless in the brand, no word more than twice except small words), its guide to <a href="https://sellercentral.amazon.com/help/hub/reference/external/G23501" target="_blank" rel="noopener">search terms</a> (under 250 bytes, no brand, punctuation or subjective words) and its <a href="https://sellercentral.amazon.com/help/hub/reference/external/G200164330" target="_blank" rel="noopener">restricted products</a> rules on pesticide, drug and FDA claims. Seller Central help needs a login, and every category has its own <a href="https://sellercentral.amazon.com/help/hub/reference/external/G200270100" target="_blank" rel="noopener">style guide</a>, so this doesn’t cover every rule.</p>
+    <p><b>Some checks are estimates.</b> The 255-character bullet and 2,000-character description limits are the usual figures, and some categories allow more. The ALL-CAPS check, the lists of promotional, medical, pesticide and guarantee phrases, and counting only words with a letter for the repeated-word rule are our own, since Amazon reviews these by judgement.</p>
+  </section>
+
+  <footer>
+    <a class="made" href="https://omniscio.com" target="_blank" rel="noopener"><img src="../../docs/orb.png" alt="" width="24" height="24"><span>Built with <b>Omniscio</b></span></a>
+  </footer>
+</main>
+<script src="calc.js"></script>
+<script>
+  (function () {
+    'use strict';
+    const { LIMITS, TITLE_LIMITS, BULLETS, FIELD_NAMES, EXAMPLE, counters, checkListing, verdict, problemList } = window.ListingCalc;
+    const COPIED_MS = 1600;
+    const COPY_KEY = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘C' : 'Ctrl+C';
+    const fmt = (n) => n.toLocaleString('en-US');
+    const MESSAGES = {
+      copy: 'Copy problem list', copied: 'Copied ✓',
+      manual: `Your browser blocked copying here. The text is selected: press ${COPY_KEY}.`,
+      chips: { reject: (n) => `${n} blocking`, weak: (n) => `${n} weakening`, ok: 'All clear' },
+      limitOption: (n) => (n === LIMITS.title ? `${n} · most categories` : String(n)),
+      counter: (c) => (c.unit === 'bytes' ? `${fmt(c.count)}/${fmt(c.limit)} bytes · ${fmt(c.characters)} characters` : `${fmt(c.count)}/${fmt(c.limit)}`),
+      nothingHighlighted: 'Nothing to highlight.'
+    };
+    const $ = (id) => document.getElementById(id);
+    const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+    let result;
+
+    // --- Inputs, filled from the example once ---
+    function bulletRow(n) {
+      const id = `bullet${n}`;
+      const field = el('div', 'field');
+      const label = el('label', '', FIELD_NAMES[id]);
+      label.htmlFor = id;
+      const count = el('span', 'count');
+      count.id = `count-${id}`;
+      label.append(count);
+      const input = el('textarea');
+      input.id = id;
+      input.rows = 3;
+      input.value = EXAMPLE.bullets[n - 1] || '';
+      field.append(label, input);
+      return field;
+    }
+
+    function buildInputs() {
+      for (let n = 1; n <= BULLETS; n++) $('bullets').append(bulletRow(n));
+      for (const id of ['brand', 'title', 'description', 'searchTerms']) $(id).value = EXAMPLE[id];
+      $('title-limit').append(...TITLE_LIMITS.map((n) => {
+        const option = el('option', '', MESSAGES.limitOption(n));
+        option.value = String(n);
+        return option;
+      }));
+    }
+
+    const readListing = () => ({
+      brand: $('brand').value, title: $('title').value, description: $('description').value, searchTerms: $('searchTerms').value,
+      bullets: Array.from({ length: BULLETS }, (_, i) => $(`bullet${i + 1}`).value)
+    });
+    const titleLimit = () => Number($('title-limit').value);
+
+    // --- Copy: Clipboard API, then the older copy command, then select the text for the person ---
+    async function copyText(text, manualBox) {
+      manualBox.hidden = true;
+      try { await navigator.clipboard.writeText(text); return true; } catch { /* blocked: try the next way */ }
+      const scratch = el('textarea');
+      scratch.value = text;
+      scratch.setAttribute('readonly', '');
+      scratch.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+      const focused = document.activeElement;
+      document.body.append(scratch);
+      scratch.focus();
+      scratch.select();
+      let copied = false;
+      try { copied = document.execCommand('copy'); } catch { /* unsupported: leave false */ }
+      scratch.remove();
+      if (focused) focused.focus();
+      if (copied) return true;
+      manualBox.value = text;
+      manualBox.hidden = false;
+      manualBox.focus();
+      manualBox.select();
+      return false;
+    }
+
+    async function copyProblems() {
+      if ($('copy').disabled) return;
+      const copied = await copyText(problemList(result), $('copy-manual'));
+      $('copy-status').textContent = copied ? '' : MESSAGES.manual;
+      if (!copied) return;
+      $('copy').textContent = MESSAGES.copied;
+      $('copy').dataset.done = 'true';
+      setTimeout(() => { $('copy').textContent = MESSAGES.copy; $('copy').dataset.done = 'false'; }, COPIED_MS);
+    }
+
+    // --- Result ---
+    function renderCounters(listing) {
+      for (const c of counters(listing, titleLimit())) {
+        $(`count-${c.field}`).textContent = MESSAGES.counter(c);
+        $(`count-${c.field}`).dataset.over = String(c.over);
+        $(c.field).dataset.over = String(c.over);
+      }
+    }
+
+    function renderVerdict() {
+      const v = verdict(result);
+      $('hero').dataset.state = v.level;
+      $('chip').dataset.state = v.level;
+      $('chip').textContent = v.level === 'ok' ? MESSAGES.chips.ok : MESSAGES.chips[v.level](v.level === 'reject' ? result.reject : result.weak);
+      $('headline').textContent = v.headline;
+      $('sub').textContent = v.sub;
+      $('clear').hidden = result.issues.length > 0;
+      $('checks').replaceChildren(...result.issues.map((i) => {
+        const li = el('li', 'check');
+        li.dataset.level = i.level;
+        li.append(el('span', 'dot'), el('span', 'where', FIELD_NAMES[i.field]), el('span', 'why', i.reason));
+        return li;
+      }));
+    }
+
+    // The field's own text, with each match wrapped in a mark: built from text nodes, never HTML.
+    function highlighted(text, marks) {
+      const p = el('p');
+      let at = 0;
+      for (const m of marks) {
+        p.append(text.slice(at, m.start));
+        const mark = el('mark', '', text.slice(m.start, m.end));
+        mark.dataset.level = m.level;
+        p.append(mark);
+        at = m.end;
+      }
+      p.append(text.slice(at));
+      return p;
+    }
+
+    function renderContext(listing) {
+      const byField = new Map();
+      for (const i of result.issues) {
+        for (const m of i.matches) {
+          if (!byField.has(i.field)) byField.set(i.field, []);
+          byField.get(i.field).push({ ...m, level: i.level });
+        }
+      }
+      const textOf = (field) => (field.startsWith('bullet') ? listing.bullets[Number(field.slice(6)) - 1] : listing[field]);
+      const snippets = Object.keys(FIELD_NAMES).filter((f) => byField.has(f)).map((field) => {
+        const box = el('div', 'snippet');
+        box.append(el('span', 'where', FIELD_NAMES[field]), highlighted(textOf(field), byField.get(field).sort((a, b) => a.start - b.start)));
+        return box;
+      });
+      $('context').replaceChildren(...(snippets.length ? snippets : [el('p', 'none', MESSAGES.nothingHighlighted)]));
+    }
+
+    function update() {
+      const listing = readListing();
+      result = checkListing(listing, { titleLimit: titleLimit() });
+      renderCounters(listing);
+      renderVerdict();
+      renderContext(listing);
+      $('copy').disabled = result.issues.length === 0;
+      $('copy-manual').hidden = true;
+      $('copy-status').textContent = '';
+    }
+
+    buildInputs();
+    $('listing').addEventListener('input', update);
+    $('listing').addEventListener('change', update);
+    $('listing').addEventListener('submit', (e) => e.preventDefault());
+    $('copy').addEventListener('click', copyProblems);
+    document.addEventListener('keydown', (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key !== 'Enter') return;
+      e.preventDefault();
+      copyProblems();
+    });
+    update();
+  })();
+</script>
+</body>
+</html>
