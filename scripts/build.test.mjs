@@ -8,7 +8,7 @@ import { inlineTool, TOOLS } from './build.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // One function each tool's calc.js must define, proving its logic made it into the bundle.
-const LOGIC_MARKER = { roas: /computeBreakEven/, utm: /function buildUrl/, serp: /function fitText/, rsa: /function arrangements/, feed: /function checkFeed/ };
+const LOGIC_MARKER = { roas: /computeBreakEven/, utm: /function buildUrl/, serp: /function fitText/, rsa: /function arrangements/, feed: /function checkFeed/, listing: /function checkListing/ };
 
 for (const tool of TOOLS) {
   test(`the bundled ${tool} tool has no external stylesheet or script references`, () => {
@@ -25,7 +25,7 @@ for (const tool of TOOLS) {
   });
 }
 
-for (const tool of ['utm', 'serp', 'rsa', 'feed']) {
+for (const tool of ['utm', 'serp', 'rsa', 'feed', 'listing']) {
   test(`the ${tool} tool puts user text on the page as text, never as HTML`, () => {
     assert.doesNotMatch(readFileSync(join(ROOT, 'tools', tool, 'index.html'), 'utf8'),
       /innerHTML|outerHTML|insertAdjacentHTML|document\.write/);

@@ -235,14 +235,15 @@ async function checkFeedExample(page) {
   return await page.locator('#table-body tr').count() === 9 ? null : 'Show only problems did not switch back';
 }
 
-async function checkFeedCopy(page) {
+// Copy problem list (feed, listing): the real APIs, then each fallback forced in turn, all copying the same list.
+async function checkProblemListCopy(page, expected) {
   await page.click('#copy');
   await page.waitForTimeout(300);
   if (await page.textContent('#copy') !== COPIED && !await page.isVisible('#copy-manual')) return 'Copy did nothing with the real browser APIs';
   await stubClipboard(page, true);
   await page.click('#copy');
   const first = await page.evaluate(() => window.__copied);
-  if (!/^5 of 9 products need fixing\n\nRow 4 \(RJ-102\): /.test(first || '')) return `Clipboard API path copied: ${first}`;
+  if (!expected.test(first || '')) return `Clipboard API path copied: ${first}`;
   await stubClipboard(page, false);
   await stubCopyCommand(page, true);
   await page.click('#copy');
@@ -319,11 +320,54 @@ async function checkFeedStates(page) {
 }
 
 async function checkFeed(page) {
-  return await checkFeedExample(page) || await checkFeedBox(page) || await checkFeedCopy(page)
+  return await checkFeedExample(page) || await checkFeedBox(page)
+    || await checkProblemListCopy(page, /^5 of 9 products need fixing\n\nRow 4 \(RJ-102\): /)
     || await checkFeedFiles(page) || await checkFeedHuge(page) || await checkFeedStates(page);
 }
 
-const TOOL_CHECKS = { roas: checkRoas, utm: checkUtm, serp: checkSerp, rsa: checkRsa, feed: checkFeed };
+// --- Listing: the example's blockers, live counters, bytes not characters, the title limit, highlights, copy ---
+
+async function checkListingExample(page) {
+  if (await page.textContent('#headline') !== '5 problems would block this listing') return `example headline: ${await page.textContent('#headline')}`;
+  if (await page.locator('#checks .check[data-level="reject"]').count() !== 5) return 'expected 5 coral checks';
+  if (await page.locator('#checks .check[data-level="weak"]').count() !== 5) return 'expected 5 amber checks';
+  const marks = await page.locator('#context mark').allTextContents();
+  for (const phrase of ['antimicrobial', 'money-back guarantee', 'www.northlinegear.com', '!']) {
+    if (!marks.includes(phrase)) return `“${phrase}” is not highlighted in context: ${JSON.stringify(marks)}`;
+  }
+  return /^\d+\/249 bytes · \d+ characters$/.test(await page.textContent('#count-searchTerms')) ? null : 'search terms counter does not show bytes and characters';
+}
+
+async function checkListingEdits(page) {
+  await page.fill('#searchTerms', 'é'.repeat(125));
+  if (await page.textContent('#count-searchTerms') !== '250/249 bytes · 125 characters') return `byte counter: ${await page.textContent('#count-searchTerms')}`;
+  if (await page.getAttribute('#count-searchTerms', 'data-over') !== 'true') return 'search terms counter is not coral at 250 bytes';
+  await page.selectOption('#title-limit', '80');
+  if (await page.getAttribute('#count-title', 'data-over') !== 'true') return 'title counter is not coral under an 80-character limit';
+  if (!/The limit is 80/.test(await page.textContent('#checks'))) return 'switching the title limit did not re-check the title';
+  await page.selectOption('#title-limit', '200');
+  await page.fill('#bullet3', 'Stays fresh: kills 99.9% of germs.');
+  if (!(await page.locator('#context mark').allTextContents()).includes('kills 99.9% of germs')) return 'a new claim was not highlighted';
+  return null;
+}
+
+async function checkListingClean(page) {
+  const clean = { title: 'Northline Women’s Waterproof Rain Jacket with Hood, Black, Medium', description: 'A packable rain shell.', searchTerms: 'raincoat anorak' };
+  for (const [id, value] of Object.entries(clean)) await page.fill(`#${id}`, value);
+  for (let n = 1; n <= 5; n++) await page.fill(`#bullet${n}`, '');
+  if (await page.textContent('#headline') !== 'Ready to publish') return `clean listing headline: ${await page.textContent('#headline')}`;
+  if (await page.isHidden('#clear') || !await page.isDisabled('#copy')) return 'clean listing did not show all clear with Copy off';
+  const scroll = await sidewaysScroll(page);
+  return scroll > 0 ? `edited listing scrolls sideways by ${scroll}px` : null;
+}
+
+async function checkListing(page) {
+  return await checkListingExample(page)
+    || await checkProblemListCopy(page, /^5 problems would block this listing\n\nTitle \(blocks\): /)
+    || await checkListingEdits(page) || await checkListingClean(page);
+}
+
+const TOOL_CHECKS = { roas: checkRoas, utm: checkUtm, serp: checkSerp, rsa: checkRsa, feed: checkFeed, listing: checkListing };
 
 (async () => {
   const server = serve().listen(0);
