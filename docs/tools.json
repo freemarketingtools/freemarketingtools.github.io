@@ -33,5 +33,12 @@
     "blurb": "Drop in a product feed and every row Google would reject or limit turns red, with the reason in plain English, before you upload it. Nothing leaves your browser.",
     "url": "https://shares.omniscio.com/s/4000c6fe4524ac427f823a829892cda635436b8024de1d0b8f09995fb2e2e713",
     "shot": "shots/feed.png"
+  },
+  {
+    "day": 6,
+    "name": "Amazon listing checker",
+    "blurb": "Paste a listing and see what Amazon would reject or suppress before you publish: title, bullet and search term limits (in bytes), banned characters, repeated words and claims Amazon doesn't allow, highlighted in place.",
+    "url": "https://shares.omniscio.com/s/98c15212d901c74d879eba0f2ca13925c17194e150fccad325a7708cdc972746",
+    "shot": "shots/listing.png"
   }
 ]
