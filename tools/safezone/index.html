@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ad safe-zone checker</title>
+<meta name="description" content="Drop in a vertical ad and see, on TikTok, Instagram Reels, Stories, Facebook Reels and YouTube Shorts at once, which parts the app’s own buttons and captions will cover.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../../shared/tokens.css">
+<style>
+  .tool { max-width: 1160px; margin: 0 auto; padding: var(--space-4) var(--space-3) var(--space-5); }
+  .top { margin-bottom: var(--space-3); }
+  .top h1 { font-size: clamp(2rem, 6vw, 3.1rem); line-height: 1.02; margin: var(--space-2) 0 var(--space-2); letter-spacing: -.035em; }
+  .top h1 span { color: var(--lime); }
+  .top p { margin: 0; max-width: 62ch; color: var(--muted); }
+
+  .layout { display: grid; gap: var(--space-3); grid-template-areas: "inputs" "hero" "previews"; }
+  .layout > * { min-width: 0; }
+  @media (min-width: 980px) {
+    .layout { grid-template-columns: minmax(0, 380px) minmax(0, 1fr); grid-template-areas: "previews previews" "inputs hero"; align-items: start; }
+  }
+
+  /* Inputs */
+  form { grid-area: inputs; display: grid; gap: var(--space-2); }
+  fieldset { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); margin: 0; padding: var(--space-2) var(--space-3) var(--space-3); min-width: 0; }
+  legend { padding: 0 6px; margin-left: -6px; }
+  .private { display: flex; align-items: center; gap: 8px; margin: 0 0 var(--space-2); color: var(--muted); font-size: .88rem; }
+  .private .dot { background: var(--lime); }
+  .drop { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; min-height: 84px; padding: var(--space-2); text-align: center; border: 1.5px dashed var(--line-strong); border-radius: var(--radius-sm); color: var(--muted); font-size: .92rem; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+  .drop:hover, .drop[data-over="true"] { border-color: var(--lime); background: var(--lime-soft); color: var(--text); }
+  .drop:focus-within { outline: 2px solid var(--lime); outline-offset: 3px; }
+  .drop b { color: var(--lime); font-weight: 650; }
+  .drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .file-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px var(--space-2); margin-top: var(--space-2); }
+  .file-status { margin: 0; color: var(--muted); font-size: .85rem; overflow-wrap: anywhere; }
+  .file-status[data-state="bad"] { color: var(--coral); }
+  .link { min-height: 38px; padding: 0; border: 0; background: none; color: var(--lime); font: 600 .85rem var(--font); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+  .toggles { display: flex; flex-wrap: wrap; gap: 8px; }
+  .toggle { position: relative; display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--ink); color: var(--muted); font-size: .9rem; font-weight: 600; cursor: pointer; user-select: none; }
+  .toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .toggle::before { content: ""; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--faint); }
+  .toggle:has(input:checked) { border-color: var(--lime); color: var(--text); background: var(--lime-soft); }
+  .toggle:has(input:checked)::before { background: var(--lime); border-color: var(--lime); }
+  .toggle:has(input:focus-visible) { outline: 2px solid var(--lime); outline-offset: 3px; }
+  .switch { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-top: var(--space-3); padding-top: var(--space-2); border-top: 1px solid var(--line); font-weight: 600; font-size: .95rem; cursor: pointer; min-height: var(--tap); }
+  .switch small { display: block; font-weight: 400; color: var(--faint); font-size: .8rem; }
+  .switch input { appearance: none; flex: none; width: 46px; height: 26px; margin: 0; border-radius: 999px; background: var(--line-strong); position: relative; cursor: pointer; transition: background .15s ease; }
+  .switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--text); transition: transform .15s ease; }
+  .switch input:checked { background: var(--lime); }
+  .switch input:checked::after { transform: translateX(20px); background: var(--lime-ink); }
+
+  /* Result */
+  .hero { grid-area: hero; padding: var(--space-3); overflow: hidden; position: relative; }
+  .hero::before { content: ""; position: absolute; inset: -40% -20% auto auto; width: 320px; height: 320px; border-radius: 50%; background: radial-gradient(var(--lime-soft), transparent 70%); pointer-events: none; }
+  .hero[data-state="reject"]::before { background: radial-gradient(var(--coral-soft), transparent 70%); }
+  .hero[data-state="look"]::before { background: radial-gradient(var(--amber-soft), transparent 70%); }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); position: relative; }
+  .chip { font: 600 12px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; padding: 7px 10px; border-radius: 999px; color: var(--lime-ink); background: var(--lime); white-space: nowrap; }
+  .chip[data-state="reject"] { background: var(--coral); color: #1a0705; }
+  .chip[data-state="look"] { background: var(--amber); color: #1a1205; }
+  .headline { position: relative; margin: var(--space-3) 0 var(--space-1); font-size: clamp(2.1rem, 5.5vw, 3.1rem); font-weight: 750; line-height: 1.04; letter-spacing: -.035em; overflow-wrap: anywhere; }
+  .hero[data-state="ok"] .headline { color: var(--lime); }
+  .sub { position: relative; margin: 0; color: var(--muted); font-size: .95rem; }
+  .sub:empty { display: none; }
+  .checks { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-1); position: relative; }
+  .check { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: 4px var(--space-2); padding: 10px 12px; border-radius: var(--radius-sm); background: var(--panel-2); border: 1px solid var(--line); font-size: .9rem; line-height: 1.4; }
+  .check .where { grid-column: 2; font: 600 11px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+  .check .why { grid-column: 2; overflow-wrap: anywhere; }
+  .check .dot { grid-row: 1 / span 2; margin-top: 3px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--coral); flex: none; display: inline-block; }
+  [data-level="look"] .dot, .dot.look { background: var(--amber); }
+  [data-level="ok"] .dot, .dot.ok { background: var(--lime); }
+  .key { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); color: var(--faint); font-size: .82rem; margin: var(--space-3) 0 var(--space-1); position: relative; }
+  .key span { display: inline-flex; align-items: center; gap: 6px; }
+  .estimate { position: relative; margin: 0 0 var(--space-3); color: var(--faint); font-size: .82rem; line-height: 1.5; }
+
+  .btn { min-height: var(--tap); padding: 0 20px; border-radius: var(--radius-sm); border: 1px solid var(--lime); background: var(--lime); color: var(--lime-ink); font: 650 .95rem var(--font); cursor: pointer; }
+  .btn:hover { filter: brightness(1.06); }
+  .btn:disabled { opacity: .4; cursor: default; filter: none; }
+  .btn[data-done="true"] { background: var(--panel-2); color: var(--lime); }
+  .actions { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+  .actions .btn { flex: 1 1 180px; }
+  .status { color: var(--muted); font-size: .9rem; }
+  .status:empty { display: none; }
+  .manual { position: relative; width: 100%; margin-top: var(--space-2); padding: 10px 12px; font: 500 .85rem/1.5 var(--mono); color: var(--text); background: var(--ink); border: 1px solid var(--lime); border-radius: var(--radius-sm); resize: vertical; }
+
+  /* Previews: one phone per platform, the creative under a neutral mock of the app */
+  .previews { grid-area: previews; padding: var(--space-3) 0 var(--space-2); }
+  .previews-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px var(--space-2); padding: 0 var(--space-3); margin-bottom: var(--space-2); }
+  .phones { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(200px, 74%); gap: var(--space-2); overflow-x: auto; scroll-snap-type: x mandatory; padding: 2px var(--space-3) var(--space-2); scrollbar-width: thin; }
+  @media (min-width: 720px) { .phones { grid-auto-columns: minmax(0, 206px); justify-content: center; overflow-x: visible; scroll-snap-type: none; } }
+  .phone-card { scroll-snap-align: center; min-width: 0; }
+  .phone-name { display: grid; gap: 3px; margin-bottom: 10px; font-weight: 650; font-size: .92rem; line-height: 1.25; }
+  .phone-name > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .phone-name .label { font-size: 10px; }
+  .phone { padding: 6px; border-radius: 26px; background: #050608; border: 1px solid var(--line-strong); }
+  .screen { position: relative; aspect-ratio: 9 / 16; border-radius: 20px; overflow: hidden; background: #000; container-type: inline-size; }
+  .screen canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .zone { position: absolute; background: rgba(255, 107, 94, .2); box-shadow: inset 0 0 0 1px rgba(255, 107, 94, .55); }
+  .zone[data-level="covered"] { background: rgba(255, 107, 94, .42); box-shadow: inset 0 0 0 2px var(--coral); }
+  .zone[data-level="look"] { background: rgba(255, 184, 77, .32); box-shadow: inset 0 0 0 2px var(--amber); }
+  .ui { position: absolute; inset: 0; color: #fff; font-family: var(--font); text-shadow: 0 1px 2px rgba(0, 0, 0, .6); pointer-events: none; }
+  .previews[data-ui="off"] .ui { display: none; }
+  .ui > * { position: absolute; }
+  .ui .txt { font-size: 4.4cqw; font-weight: 600; white-space: nowrap; line-height: 1.2; }
+  .ui .txt.big { font-size: 6cqw; font-weight: 750; }
+  .ui .txt.small { font-size: 3.5cqw; font-weight: 500; opacity: .85; }
+  .ui .txt.center { text-align: center; }
+  .ui .circle { aspect-ratio: 1; border-radius: 50%; background: rgba(255, 255, 255, .88); box-shadow: 0 1px 3px rgba(0, 0, 0, .35); }
+  .ui .circle.ghost { background: rgba(255, 255, 255, .22); border: 1.5px solid rgba(255, 255, 255, .85); }
+  .ui .bar { border-radius: 99px; background: rgba(255, 255, 255, .8); }
+  .ui .bar.faint { background: rgba(255, 255, 255, .45); }
+  .ui .cta { display: flex; align-items: center; justify-content: center; border-radius: 1.6cqw; background: rgba(255, 255, 255, .92); color: #111; text-shadow: none; font-size: 4cqw; font-weight: 700; }
+  .ui .cta.pill { border-radius: 99px; }
+  .phone-status { display: flex; align-items: flex-start; gap: 8px; margin: 10px 2px 0; font-size: .85rem; line-height: 1.35; color: var(--muted); }
+  .phone-status .dot { margin-top: 5px; }
+  .phone-status[data-level="ok"] { color: var(--lime); }
+  .swipe { margin: 0; padding: 0 var(--space-3); color: var(--faint); font-size: .82rem; }
+  @media (min-width: 720px) { .swipe { display: none; } }
+
+  .notes { color: var(--muted); font-size: .88rem; line-height: 1.6; padding: var(--space-3); margin-top: var(--space-3); }
+  .notes p { margin: 0 0 var(--space-2); }
+  .notes p:last-child { margin-bottom: 0; }
+  .notes b { color: var(--text); }
+
+  footer { margin-top: var(--space-4); }
+  [hidden] { display: none !important; }
+  @media (max-width: 520px) { .hero { padding: var(--space-3) var(--space-2) var(--space-2); } fieldset { padding: var(--space-2) var(--space-2) var(--space-3); } }
+</style>
+</head>
+<body>
+<main class="tool">
+  <header class="top">
+    <span class="label">Free tool · Day 7 of 10</span>
+    <h1>Ad safe-zone <span>checker</span></h1>
+    <p>Drop in a vertical ad and see it on TikTok, Instagram Reels, Stories, Facebook Reels and YouTube Shorts at once, with the parts each app’s buttons, captions and profile bar will cover. It checks the covered areas for you, so you don’t have to squint.</p>
+  </header>
+
+  <div class="layout">
+    <section class="previews panel" id="previews" data-ui="on" aria-label="Previews">
+      <div class="previews-head">
+        <span class="label">Coral = covered by the app</span>
+        <span class="label">Mock-ups, no real app shown</span>
+      </div>
+      <div class="phones" id="phones"></div>
+      <p class="swipe">Swipe for more platforms.</p>
+    </section>
+
+    <form id="inputs" novalidate autocomplete="off">
+      <fieldset>
+        <legend class="label">Your ad</legend>
+        <p class="private"><span class="dot"></span>Checked in your browser. Nothing is uploaded.</p>
+        <label class="drop" id="drop">
+          <input type="file" id="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,.png,.jpg,.jpeg,.webp,.mp4,.webm">
+          <span>Drop an image or video here or <b>choose one</b></span><span>PNG, JPEG, WebP, MP4 or WebM</span>
+        </label>
+        <div class="file-row">
+          <p class="file-status" id="file-status" aria-live="polite"></p>
+          <button type="button" class="link" id="use-example" hidden>Back to the example</button>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend class="label">Platforms</legend>
+        <div class="toggles" id="toggles"></div>
+        <label class="switch" for="show-ui"><span>Show app buttons<small>Turn off to see only the covered zones.</small></span><input type="checkbox" id="show-ui" checked></label>
+      </fieldset>
+    </form>
+
+    <section class="hero panel" id="hero" data-state="ok" aria-label="Result">
+      <div class="row">
+        <span class="label">Result</span>
+        <span class="chip" id="chip"></span>
+      </div>
+      <p class="headline" id="headline" aria-live="polite"></p>
+      <p class="sub" id="sub"></p>
+      <ul class="checks" id="checks" aria-label="Checks per platform"></ul>
+      <p class="key"><span><span class="dot"></span>Covered or rejected</span><span><span class="dot look"></span>Worth a look</span><span><span class="dot ok"></span>Clear</span></p>
+      <p class="estimate">The cover check is an estimate. It can’t read text: it looks for sharp, high-contrast detail like letters and logos under each app’s buttons and captions. A plain background passes.</p>
+      <div class="actions">
+        <button type="button" class="btn" id="copy" title="Copy problem list (Ctrl+Enter)">Copy problem list</button>
+        <span class="status" id="copy-status" aria-live="polite"></span>
+      </div>
+      <textarea class="manual" id="copy-manual" rows="5" readonly hidden aria-label="Problem list, selected for copying"></textarea>
+    </section>
+  </div>
+
+  <section class="notes panel">
+    <p><b>Where the zones come from.</b> Instagram Reels and Facebook Reels use Meta’s own figure from its <a href="https://www.facebook.com/business/help/980593475366490" target="_blank" rel="noopener">safe zone guide for Stories and Reels ads</a>: leave about 14% at the top, 35% at the bottom and 6% on each side free of text and logos. Instagram Stories uses Meta’s <a href="https://www.facebook.com/business/ads-guide/update/video/instagram-story" target="_blank" rel="noopener">Stories ad specs</a>: about 14% at the top and 20% at the bottom (the 6% sides are our estimate, borrowed from Reels).</p>
+    <p><b>TikTok and YouTube Shorts are estimates.</b> TikTok gives its safe zone as a template image on its <a href="https://ads.tiktok.com/help/article/tiktok-auction-in-feed-ads" target="_blank" rel="noopener">In-Feed ads specs</a> and says it shrinks as your caption gets longer. Google draws the Shorts zone as a picture in its <a href="https://support.google.com/google-ads/answer/16041697" target="_blank" rel="noopener">Shorts ads specs</a> and <a href="https://services.google.com/fh/files/misc/universalsafezones-youtube.pdf" target="_blank" rel="noopener">safe zone guide</a>. Both use the commonly measured 1080×1920 values, so check the official templates before you ship.</p>
+    <p><b>Format checks.</b> 9:16 at 1080×1920 fills every screen. Wider ads are letterboxed and taller ones are cropped. TikTok’s minimum is 540×960 and its In-Feed ads run up to 10 minutes. Shorts ads run up to 3 minutes, with only the first 60 seconds in the Shorts feed. Stories plays ads under 35 seconds in full. Meta publishes no length limit for Reels.</p>
+  </section>
+
+  <footer>
+    <a class="made" href="https://omniscio.com" target="_blank" rel="noopener"><img src="../../docs/orb.png" alt="" width="24" height="24"><span>Built with <b>Omniscio</b></span></a>
+  </footer>
+</main>
+<script src="calc.js"></script>
+<script>
+  (function () {
+    'use strict';
+    const { PLATFORMS, SCAN, BUSY, LOOK, EXAMPLE, fitFrame, scanFrame, mergeScans, checkCreative, verdict, problemList } = window.SafezoneCalc;
+    const COPIED_MS = 1600;
+    const PREVIEW = { width: 360, height: 640 };
+    const VIDEO_FRAMES = 5;
+    const SEEK_TIMEOUT_MS = 3000;
+    const LOAD_TIMEOUT_MS = 15000;
+    const MB = 1024 * 1024;
+    const MAX_BYTES = { image: 50 * MB, video: 500 * MB };
+    const KINDS = { 'image/png': 'image', 'image/jpeg': 'image', 'image/webp': 'image', 'video/mp4': 'video', 'video/webm': 'video' };
+    const EXTENSIONS = [[/\.(png|jpe?g|webp)$/i, 'image'], [/\.(mp4|webm)$/i, 'video']];
+    const COPY_KEY = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘C' : 'Ctrl+C';
+    const MESSAGES = {
+      copy: 'Copy problem list', copied: 'Copied ✓',
+      manual: `Your browser blocked copying here. The text is selected: press ${COPY_KEY}.`,
+      chips: { covered: (n) => `${n} covered`, reject: 'Fix first', look: 'Worth a look', ok: 'All clear', none: 'No platforms' },
+      example: 'Showing an example ad. Drop in your own to check it.',
+      read: (name, m) => `Read ${name} in your browser · ${m.width}×${m.height} ${m.kind}`,
+      fileType: (name) => `“${name}” isn’t a PNG, JPEG, WebP, MP4 or WebM file.`,
+      fileBig: (name, kind) => `“${name}” is over ${MAX_BYTES[kind] / MB} MB, too big to check in a browser tab.`,
+      fileFailed: (name) => `Couldn’t open “${name}”. Try exporting it again as PNG or MP4.`,
+      noPicture: (name) => `“${name}” has no picture to check.`,
+      reading: (name) => `Checking ${name}…`,
+      published: (p) => (p.estimate ? 'Estimate' : p.estimateNote ? 'Meta · sides est.' : 'Meta’s figures')
+    };
+    // Neutral mock-ups of each app's overlay, as [kind, x%, y%, width%, height%, text]: no logos or icons.
+    const MOCKS = {
+      tiktok: [
+        ['txt center', 20, 3.4, 60, 0, 'Following    For You'],
+        ['circle', 84, 45.5, 12], ['circle ghost', 85, 54, 10], ['txt small center', 82, 59.7, 16, 0, '12K'],
+        ['circle ghost', 85, 63.5, 10], ['txt small center', 82, 69.2, 16, 0, '318'],
+        ['txt', 4, 78.4, 0, 0, '@yourbrand'], ['txt small', 4, 81.6, 0, 0, 'Sponsored'],
+        ['bar', 4, 85, 62, 1.1], ['bar faint', 4, 87.4, 46, 1.1], ['cta', 4, 90.3, 72, 4.6, 'Learn more']
+      ],
+      reels: [
+        ['txt big', 4, 3.2, 0, 0, 'Reels'], ['circle ghost', 87, 3, 8],
+        ['circle ghost', 87, 52, 8], ['txt small center', 84, 56.8, 14, 0, '12K'],
+        ['circle ghost', 87, 61, 8], ['txt small center', 84, 65.8, 14, 0, '318'], ['circle ghost', 87, 70, 8],
+        ['circle', 4, 79, 7], ['txt', 13, 79.6, 0, 0, 'yourbrand'], ['txt small', 13, 82.2, 0, 0, 'Sponsored'],
+        ['bar', 4, 86, 60, 1.1], ['cta', 4, 89.4, 78, 4.6, 'Learn more']
+      ],
+      stories: [
+        ['bar', 3, 1.4, 94, .45], ['circle', 3, 3.4, 8], ['txt', 13, 3.6, 0, 0, 'yourbrand'],
+        ['txt small', 13, 6.3, 0, 0, 'Sponsored'], ['txt big center', 84, 3.6, 12, 0, '×'],
+        ['bar faint', 46, 86, 8, .9], ['cta pill', 30, 88.4, 40, 4.6, 'Learn more']
+      ],
+      fbreels: [
+        ['circle ghost', 4, 3, 8], ['txt big', 15, 3.2, 0, 0, 'Reels'], ['circle ghost', 87, 3, 8],
+        ['circle ghost', 87, 54, 8], ['txt small center', 84, 58.8, 14, 0, '2.4K'], ['circle ghost', 87, 63, 8],
+        ['txt small center', 84, 67.8, 14, 0, '96'], ['circle', 4, 79, 7], ['txt', 13, 79.6, 0, 0, 'yourbrand · Follow'],
+        ['txt small', 13, 82.2, 0, 0, 'Sponsored'], ['bar', 4, 86, 58, 1.1], ['cta', 4, 89.4, 78, 4.6, 'Shop now']
+      ],
+      shorts: [
+        ['circle ghost', 72, 3, 8], ['circle ghost', 85, 3, 8],
+        ['circle ghost', 85, 50, 10], ['txt small center', 82, 55.8, 16, 0, '12K'], ['circle ghost', 85, 60, 10],
+        ['txt small center', 82, 65.8, 16, 0, '318'], ['circle ghost', 85, 70, 10], ['circle', 85, 80, 10],
+        ['circle', 4, 81.6, 7], ['txt', 13, 82.2, 0, 0, '@yourbrand'], ['cta pill', 45, 81.8, 20, 3.4, 'Subscribe'],
+        ['bar', 4, 87, 64, 1.1], ['cta', 4, 90, 76, 4.6, 'Visit site']
+      ]
+    };
+    const $ = (id) => document.getElementById(id);
+    const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+    const percentBox = (node, x, y, w, h) => {
+      node.style.left = `${x}%`; node.style.top = `${y}%`;
+      if (w) node.style.width = `${w}%`;
+      if (h) node.style.height = `${h}%`;
+      return node;
+    };
+    const scanCtx = Object.assign(document.createElement('canvas'), SCAN).getContext('2d', { willReadFrequently: true });
+    const previews = {};
+    let media = null;
+    let results = [];
+
+    // --- Drawing a creative into the full-screen 9:16 frame (letterboxed or cropped) ---
+    function drawFitted(ctx, m) {
+      const { width: W, height: H } = ctx.canvas;
+      const f = fitFrame(m.width, m.height);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, W, H);
+      ctx.drawImage(m.source, f.x * W, f.y * H, f.w * W, f.h * H);
+    }
+
+    function scanNow(m) {
+      drawFitted(scanCtx, m);
+      return scanFrame(scanCtx.getImageData(0, 0, SCAN.width, SCAN.height).data, SCAN.width, SCAN.height);
+    }
+
+    function drawPreviews() {
+      for (const p of PLATFORMS) if (media) drawFitted(previews[p.id].ctx, media);
+    }
+
+    // --- The example ad, drawn here so the page needs no outside image ---
+    function exampleBox(id) {
+      const b = EXAMPLE.boxes.find((x) => x.id === id);
+      return { x: b.x * EXAMPLE.width, y: b.y * EXAMPLE.height, w: b.w * EXAMPLE.width, h: b.h * EXAMPLE.height };
+    }
+
+    function drawBottle(g) {
+      const b = exampleBox('product');
+      const glow = g.createRadialGradient(b.x + b.w / 2, b.y + b.h / 2, 0, b.x + b.w / 2, b.y + b.h / 2, b.w * 1.1);
+      glow.addColorStop(0, 'rgba(200, 241, 105, .28)');
+      glow.addColorStop(1, 'rgba(200, 241, 105, 0)');
+      g.fillStyle = glow;
+      g.fillRect(0, 0, EXAMPLE.width, EXAMPLE.height);
+      const body = g.createLinearGradient(b.x, 0, b.x + b.w, 0);
+      body.addColorStop(0, '#f4f7f8');
+      body.addColorStop(1, '#93a7b1');
+      g.fillStyle = '#1c2b33';
+      g.beginPath(); g.roundRect(b.x + b.w * 0.3, b.y, b.w * 0.4, b.h * 0.16, 18); g.fill();
+      g.fillStyle = body;
+      g.beginPath(); g.roundRect(b.x + b.w * 0.14, b.y + b.h * 0.14, b.w * 0.72, b.h * 0.86, 60); g.fill();
+      g.fillStyle = '#c8f169';
+      g.fillRect(b.x + b.w * 0.14, b.y + b.h * 0.46, b.w * 0.72, b.h * 0.16);
+    }
+
+    function drawExampleText(g) {
+      const brand = exampleBox('brand');
+      const head = exampleBox('headline');
+      const cta = exampleBox('cta');
+      g.textBaseline = 'top';
+      g.fillStyle = '#f2f3f5';
+      g.font = `800 ${Math.round(brand.h * 0.75)}px system-ui, "Segoe UI", sans-serif`;
+      g.letterSpacing = '10px';
+      g.fillText(EXAMPLE.brand, brand.x, brand.y);
+      g.letterSpacing = '0px';
+      g.font = `800 ${Math.round(head.h * 0.46)}px system-ui, "Segoe UI", sans-serif`;
+      EXAMPLE.headline.forEach((text, n) => g.fillText(text, head.x, head.y + n * head.h * 0.52));
+      g.fillStyle = '#c8f169';
+      g.beginPath(); g.roundRect(cta.x, cta.y, cta.w, cta.h, cta.h / 2); g.fill();
+      g.fillStyle = '#10140a';
+      g.textBaseline = 'middle';
+      g.textAlign = 'center';
+      g.font = `750 ${Math.round(cta.h * 0.42)}px system-ui, "Segoe UI", sans-serif`;
+      g.fillText(EXAMPLE.cta, cta.x + cta.w / 2, cta.y + cta.h / 2);
+      g.textAlign = 'start';
+    }
+
+    function exampleMedia() {
+      const canvas = Object.assign(document.createElement('canvas'), { width: EXAMPLE.width, height: EXAMPLE.height });
+      const g = canvas.getContext('2d');
+      const bg = g.createLinearGradient(0, 0, 0, EXAMPLE.height);
+      bg.addColorStop(0, '#24414f');
+      bg.addColorStop(1, '#0b141b');
+      g.fillStyle = bg;
+      g.fillRect(0, 0, EXAMPLE.width, EXAMPLE.height);
+      drawBottle(g);
+      drawExampleText(g);
+      return { kind: 'image', width: EXAMPLE.width, height: EXAMPLE.height, source: canvas, example: true };
+    }
+
+    // --- Previews ---
+    function mockUi(id) {
+      const ui = el('div', 'ui');
+      ui.setAttribute('aria-hidden', 'true');
+      for (const [kind, x, y, w, h, text] of MOCKS[id]) ui.append(percentBox(el('div', kind, text), x, y, w, h));
+      return ui;
+    }
+
+    function phoneCard(p) {
+      const card = el('article', 'phone-card');
+      card.dataset.platform = p.id;
+      const name = el('div', 'phone-name');
+      const badge = el('span', 'label', MESSAGES.published(p));
+      if (p.estimateNote) badge.title = p.estimateNote;
+      name.append(el('span', '', p.name), badge);
+      const screen = el('div', 'screen');
+      const canvas = Object.assign(el('canvas'), PREVIEW);
+      canvas.setAttribute('role', 'img');
+      canvas.setAttribute('aria-label', `Your ad on ${p.name}`);
+      const zones = p.zones.map((z) => percentBox(el('div', 'zone'), z.x * 100, z.y * 100, z.w * 100, z.h * 100));
+      screen.append(canvas, ...zones, mockUi(p.id));
+      const phone = el('div', 'phone');
+      phone.append(screen);
+      const status = el('p', 'phone-status');
+      card.append(name, phone, status);
+      previews[p.id] = { card, ctx: canvas.getContext('2d'), zones, status };
+      return card;
+    }
+
+    function zoneLevel(score) {
+      if (score >= BUSY) return 'covered';
+      return score >= LOOK ? 'look' : 'clear';
+    }
+
+    function renderPreviews() {
+      for (const r of results) {
+        const view = previews[r.platform.id];
+        view.card.hidden = !enabledIds().includes(r.platform.id);
+        r.zones.forEach((z, n) => { view.zones[n].dataset.level = zoneLevel(z.score); });
+        view.status.dataset.level = r.level;
+        view.status.replaceChildren(el('span', 'dot'), el('span', '', r.status));
+      }
+    }
+
+    // --- Result ---
+    const enabledIds = () => PLATFORMS.map((p) => p.id).filter((id) => $(`on-${id}`).checked);
+
+    function checkRows(r) {
+      const rows = r.lines.length ? r.lines : [{ level: 'ok', text: r.status }];
+      return rows.map((l) => {
+        const li = el('li', 'check');
+        li.dataset.level = l.level;
+        li.append(el('span', 'dot'), el('span', 'where', r.platform.name), el('span', 'why', l.text));
+        return li;
+      });
+    }
+
+    function chipText(v, on) {
+      if (on.length === 0) return MESSAGES.chips.none;
+      if (v.covered) return MESSAGES.chips.covered(v.covered);
+      return MESSAGES.chips[v.level];
+    }
+
+    function renderHero() {
+      const enabled = enabledIds();
+      const on = results.filter((r) => enabled.includes(r.platform.id));
+      const v = verdict(results, enabled);
+      $('hero').dataset.state = v.level;
+      $('chip').dataset.state = v.level;
+      $('chip').textContent = chipText(v, on);
+      $('headline').textContent = v.headline;
+      $('sub').textContent = v.sub;
+      $('checks').replaceChildren(...on.flatMap(checkRows));
+      $('copy').disabled = !on.some((r) => r.lines.length);
+      $('copy-manual').hidden = true;
+      $('copy-status').textContent = '';
+    }
+
+    function render() {
+      renderHero();
+      renderPreviews();
+    }
+
+    function show(m, scan) {
+      if (media && media.release) media.release();
+      media = m;
+      results = checkCreative(m, scan);
+      $('use-example').hidden = Boolean(m.example);
+      drawPreviews();
+      render();
+      if (m.kind === 'video') playLoop(m);
+    }
+
+    // --- Video: five frames scanned, the busiest wins; then it plays, muted, in every preview ---
+    function seek(video, time) {
+      return new Promise((resolve) => {
+        const done = () => { clearTimeout(timer); video.removeEventListener('seeked', done); resolve(); };
+        const timer = setTimeout(done, SEEK_TIMEOUT_MS);
+        video.addEventListener('seeked', done);
+        video.currentTime = time;
+      });
+    }
+
+    async function scanVideo(m) {
+      const d = m.duration;
+      const times = Number.isFinite(d) && d > 0 ? Array.from({ length: VIDEO_FRAMES }, (_, n) => (d * (n + 0.5)) / VIDEO_FRAMES) : [null];
+      const scans = [];
+      for (const time of times) {
+        if (time !== null) await seek(m.source, time);
+        scans.push(scanNow(m));
+      }
+      return mergeScans(scans);
+    }
+
+    function playLoop(m) {
+      const video = m.source;
+      video.currentTime = 0;
+      video.play().catch(() => { /* autoplay refused: the scanned frame stays drawn */ });
+      const tick = () => {
+        if (media !== m) return;
+        if (!document.hidden) drawPreviews();
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
+
+    function openVideo(url) {
+      return new Promise((resolve, reject) => {
+        const video = Object.assign(document.createElement('video'), { muted: true, playsInline: true, loop: true, preload: 'auto' });
+        const timer = setTimeout(() => reject(new Error('timeout')), LOAD_TIMEOUT_MS);
+        video.addEventListener('loadeddata', () => { clearTimeout(timer); resolve(video); }, { once: true });
+        video.addEventListener('error', () => { clearTimeout(timer); reject(new Error('unreadable')); }, { once: true });
+        video.src = url;
+      });
+    }
+
+    // --- Files: opened here in the browser, never sent anywhere ---
+    function say(text, state) {
+      $('file-status').textContent = text;
+      $('file-status').dataset.state = state;
+    }
+
+    function kindOf(file) {
+      if (KINDS[file.type]) return KINDS[file.type];
+      const ext = EXTENSIONS.find(([pattern]) => pattern.test(file.name));
+      return ext ? ext[1] : null;
+    }
+
+    async function imageMedia(file) {
+      const bitmap = await createImageBitmap(file);
+      return { kind: 'image', width: bitmap.width, height: bitmap.height, source: bitmap, release: () => bitmap.close() };
+    }
+
+    async function videoMedia(file) {
+      const url = URL.createObjectURL(file);
+      try {
+        const video = await openVideo(url);
+        const release = () => { video.pause(); URL.revokeObjectURL(url); };
+        return { kind: 'video', width: video.videoWidth, height: video.videoHeight, duration: video.duration, source: video, release };
+      } catch (e) {
+        URL.revokeObjectURL(url);
+        throw e;
+      }
+    }
+
+    async function loadFile(file) {
+      const kind = kindOf(file);
+      if (!kind) return say(MESSAGES.fileType(file.name), 'bad');
+      if (file.size > MAX_BYTES[kind]) return say(MESSAGES.fileBig(file.name, kind), 'bad');
+      say(MESSAGES.reading(file.name), 'ok');
+      let m;
+      try {
+        m = await (kind === 'image' ? imageMedia(file) : videoMedia(file));
+      } catch {
+        return say(MESSAGES.fileFailed(file.name), 'bad');
+      }
+      if (!m.width || !m.height) { m.release(); return say(MESSAGES.noPicture(file.name), 'bad'); }
+      const scan = kind === 'video' ? await scanVideo(m) : scanNow(m);
+      show(m, scan);
+      say(MESSAGES.read(file.name, m), 'ok');
+    }
+
+    function useExample() {
+      const m = exampleMedia();
+      show(m, scanNow(m));
+      say(MESSAGES.example, 'ok');
+    }
+
+    // --- Copy: Clipboard API, then the older copy command, then select the text for the person ---
+    async function copyText(text, manualBox) {
+      manualBox.hidden = true;
+      try { await navigator.clipboard.writeText(text); return true; } catch { /* blocked: try the next way */ }
+      const scratch = el('textarea');
+      scratch.value = text;
+      scratch.setAttribute('readonly', '');
+      scratch.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+      const focused = document.activeElement;
+      document.body.append(scratch);
+      scratch.focus();
+      scratch.select();
+      let copied = false;
+      try { copied = document.execCommand('copy'); } catch { /* unsupported: leave false */ }
+      scratch.remove();
+      if (focused) focused.focus();
+      if (copied) return true;
+      manualBox.value = text;
+      manualBox.hidden = false;
+      manualBox.focus();
+      manualBox.select();
+      return false;
+    }
+
+    async function copyProblems() {
+      if ($('copy').disabled) return;
+      const copied = await copyText(problemList(results, enabledIds()), $('copy-manual'));
+      $('copy-status').textContent = copied ? '' : MESSAGES.manual;
+      if (!copied) return;
+      $('copy').textContent = MESSAGES.copied;
+      $('copy').dataset.done = 'true';
+      setTimeout(() => { $('copy').textContent = MESSAGES.copy; $('copy').dataset.done = 'false'; }, COPIED_MS);
+    }
+
+    // --- Wiring ---
+    function buildControls() {
+      for (const p of PLATFORMS) {
+        const toggle = el('label', 'toggle');
+        const box = Object.assign(el('input'), { type: 'checkbox', id: `on-${p.id}`, checked: true });
+        toggle.append(box, p.name);
+        $('toggles').append(toggle);
+        $('phones').append(phoneCard(p));
+      }
+    }
+
+    // A file dropped anywhere is caught: left alone, the browser would open it over this page.
+    const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files');
+    const showOver = (on) => { $('drop').dataset.over = String(on); };
+    window.addEventListener('dragover', (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      showOver(true);
+    });
+    window.addEventListener('dragleave', (e) => { if (!e.relatedTarget) showOver(false); });
+    window.addEventListener('drop', (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      showOver(false);
+      if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+    });
+
+    buildControls();
+    $('file').addEventListener('change', () => {
+      const [file] = $('file').files;
+      if (file) loadFile(file);
+      $('file').value = ''; // So picking the same file again still fires.
+    });
+    $('toggles').addEventListener('change', render);
+    $('show-ui').addEventListener('change', () => { $('previews').dataset.ui = $('show-ui').checked ? 'on' : 'off'; });
+    $('inputs').addEventListener('submit', (e) => e.preventDefault());
+    $('use-example').addEventListener('click', useExample);
+    $('copy').addEventListener('click', copyProblems);
+    document.addEventListener('keydown', (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key !== 'Enter') return;
+      e.preventDefault();
+      copyProblems();
+    });
+    useExample();
+  })();
+</script>
+</body>
+</html>

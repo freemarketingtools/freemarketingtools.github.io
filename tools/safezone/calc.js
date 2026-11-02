@@ -284,7 +284,7 @@
       { id: 'brand', text: true, x: 0.09, y: 0.17, w: 0.4, h: 0.035 },
       { id: 'product', text: false, x: 0.3, y: 0.24, w: 0.4, h: 0.32 },
       { id: 'headline', text: true, x: 0.09, y: 0.585, w: 0.7, h: 0.085 },
-      { id: 'cta', text: true, x: 0.09, y: 0.69, w: 0.4, h: 0.055 }
+      { id: 'cta', text: true, x: 0.09, y: 0.685, w: 0.4, h: 0.05 }
     ]
   };
 

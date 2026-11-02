@@ -367,7 +367,108 @@ async function checkListing(page) {
     || await checkListingEdits(page) || await checkListingClean(page);
 }
 
-const TOOL_CHECKS = { roas: checkRoas, utm: checkUtm, serp: checkSerp, rsa: checkRsa, feed: checkFeed, listing: checkListing };
+// --- Safe zones: the example's verdict, toggles, hide UI, copy, and real files under the Share's sandbox ---
+
+const EXAMPLE_HEADLINE = '3 of 5 platforms would cover your text';
+const zoneLevels = (page) => page.evaluate(() => Object.fromEntries([...document.querySelectorAll('.phone-card')]
+  .map((c) => [c.dataset.platform, [...c.querySelectorAll('.zone')].filter((z) => z.dataset.level === 'covered').length])));
+
+// A test picture made in the page itself: a plain card with a word drawn at a height (0-1) of the frame.
+const pictureFile = (page, [width, height, textAt]) => page.evaluate(([w, h, at]) => new Promise((resolve) => {
+  const c = Object.assign(document.createElement('canvas'), { width: w, height: h });
+  const g = c.getContext('2d');
+  g.fillStyle = '#d8dde2'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#111'; g.font = `800 ${Math.round(w / 9)}px sans-serif`; g.textAlign = 'center';
+  g.fillText('SALE 50%', w / 2, h * at);
+  c.toBlob((b) => b.arrayBuffer().then((buf) => resolve(Array.from(new Uint8Array(buf)))), 'image/png');
+}), [width, height, textAt]).then((bytes) => Buffer.from(bytes));
+
+// A real WebM recorded in the page (MediaRecorder leaves its length unknown), with a caption at 73-78% of
+// the height: under TikTok's caption and both Reels and Shorts, just above Stories' 80%.
+const recordedVideo = (page) => page.evaluate(() => new Promise((resolve) => {
+  const c = Object.assign(document.createElement('canvas'), { width: 540, height: 960 });
+  const g = c.getContext('2d');
+  const recorder = new MediaRecorder(c.captureStream(30), { mimeType: 'video/webm' });
+  const chunks = [];
+  recorder.ondataavailable = (e) => chunks.push(e.data);
+  recorder.onstop = () => new Blob(chunks).arrayBuffer().then((buf) => resolve(Array.from(new Uint8Array(buf))));
+  let frame = 0;
+  const draw = () => {
+    g.fillStyle = '#20303a'; g.fillRect(0, 0, 540, 960);
+    g.fillStyle = '#fff'; g.font = '800 64px sans-serif'; g.fillText(`BUY NOW ${frame++}`, 60, 750);
+  };
+  draw();
+  const timer = setInterval(draw, 33);
+  recorder.start();
+  setTimeout(() => { clearInterval(timer); recorder.stop(); }, 1200);
+}));
+
+const dropFile = (page, name, type, bytes) => page.evaluate(([n, t, b]) => {
+  const data = new DataTransfer();
+  data.items.add(new File([new Uint8Array(b)], n, { type: t }));
+  for (const kind of ['dragover', 'drop']) document.body.dispatchEvent(new DragEvent(kind, { bubbles: true, cancelable: true, dataTransfer: data }));
+}, [name, type, Array.from(bytes)]);
+
+async function checkSafezoneExample(page) {
+  if (await page.textContent('#headline') !== EXAMPLE_HEADLINE) return `example headline: ${await page.textContent('#headline')}`;
+  const covered = await zoneLevels(page);
+  const expected = { tiktok: 0, reels: 1, stories: 0, fbreels: 1, shorts: 1 };
+  if (JSON.stringify(covered) !== JSON.stringify(expected)) return `covered zones per platform: ${JSON.stringify(covered)}`;
+  if (await page.locator('#checks .check[data-level="reject"]').count() !== 3) return 'expected 3 coral checks';
+  if (await page.locator('#checks .check[data-level="ok"]').count() !== 2) return 'expected 2 clear checks';
+  if (!/Clear on TikTok/.test(await page.textContent('#phones'))) return 'TikTok preview does not say Clear';
+  const painted = await page.evaluate(() => {
+    const c = document.querySelector('.phone-card[data-platform="reels"] canvas');
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    let lit = 0;
+    for (let i = 0; i < d.length; i += 4) if (d[i] + d[i + 1] + d[i + 2] > 60) lit++;
+    return lit;
+  });
+  return painted > 1000 ? null : 'the example was not drawn into the preview';
+}
+
+async function checkSafezoneControls(page) {
+  await page.click('label.toggle:has(#on-reels)');
+  if (await page.textContent('#headline') !== '2 of 4 platforms would cover your text') return `with Reels off: ${await page.textContent('#headline')}`;
+  if (await page.isVisible('.phone-card[data-platform="reels"]')) return 'Reels preview stayed visible when switched off';
+  await page.click('label.toggle:has(#on-reels)');
+  if (await page.textContent('#headline') !== EXAMPLE_HEADLINE) return 'switching Reels back on did not restore the verdict';
+  await page.click('label.switch');
+  if (await page.isVisible('.phone-card[data-platform="tiktok"] .ui')) return 'Show app buttons off did not hide the mock UI';
+  if (!await page.isVisible('.phone-card[data-platform="tiktok"] .zone')) return 'hiding the mock UI hid the zones too';
+  await page.click('label.switch');
+  if (page.viewportSize().width < 720) {
+    const swipe = await page.evaluate(() => { const p = document.getElementById('phones'); return p.scrollWidth > p.clientWidth && getComputedStyle(p).overflowX === 'auto'; });
+    if (!swipe) return 'previews are not a swipeable row on a phone';
+  }
+  return null;
+}
+
+async function checkSafezoneFiles(page) {
+  await page.setInputFiles('#file', { name: 'square.png', mimeType: 'image/png', buffer: await pictureFile(page, [1080, 1080, 0.5]) });
+  await headlineIs(page, 'No platform covers your text');
+  if (!/Read square\.png in your browser · 1080×1080 image/.test(await page.textContent('#file-status'))) return `square pick: ${await page.textContent('#file-status')}`;
+  if (!/1:1 is letterboxed: it fills 56% of the screen height, with black bars/.test(await page.textContent('#checks'))) return 'square was not called letterboxed';
+  await page.setInputFiles('#file', { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') });
+  if (!/isn’t a PNG, JPEG, WebP, MP4 or WebM/.test(await page.textContent('#file-status'))) return 'wrong file type was not refused';
+  await dropFile(page, 'dropped.png', 'image/png', await pictureFile(page, [720, 1280, 0.9]));
+  await headlineIs(page, '5 of 5 platforms would cover your text');
+  if (!/Only 720 pixels wide/.test(await page.textContent('#checks'))) return 'a 720px image was not flagged as soft';
+  await dropFile(page, 'clip.webm', 'video/webm', await recordedVideo(page));
+  await headlineIs(page, '4 of 5 platforms would cover your text');
+  if (!/Read clip\.webm in your browser · 540×960 video/.test(await page.textContent('#file-status'))) return `video: ${await page.textContent('#file-status')}`;
+  if (!/Couldn’t read the video’s length/.test(await page.textContent('#checks'))) return 'unknown video length was not said';
+  await page.click('#use-example');
+  return await page.textContent('#headline') === EXAMPLE_HEADLINE ? null : 'Back to the example did not restore it';
+}
+
+async function checkSafezone(page) {
+  return await checkSafezoneExample(page)
+    || await checkProblemListCopy(page, /^3 of 5 platforms would cover your text\n\nInstagram Reels \(covered\): Something important may sit under the caption area on Instagram Reels\.\n/)
+    || await checkSafezoneControls(page) || await checkSafezoneFiles(page);
+}
+
+const TOOL_CHECKS = { roas: checkRoas, utm: checkUtm, serp: checkSerp, rsa: checkRsa, feed: checkFeed, listing: checkListing, safezone: checkSafezone };
 
 (async () => {
   const server = serve().listen(0);
