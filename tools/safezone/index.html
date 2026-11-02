@@ -285,7 +285,8 @@
     }
 
     function drawPreviews() {
-      for (const p of PLATFORMS) if (media) drawFitted(previews[p.id].ctx, media);
+      if (!media) return;
+      for (const p of PLATFORMS) drawFitted(previews[p.id].ctx, media);
     }
 
     // --- The example ad, drawn here so the page needs no outside image ---
