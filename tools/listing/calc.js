@@ -46,7 +46,7 @@
     { code: 'pesticide', pattern: /\b(?:anti-?bacterial|anti-?microbial|anti-?fungal|anti-?viral|kills? (?:\d+(?:\.\d+)?% of )?(?:germs|bacteria|viruses|fungus|mold|mould|bugs|insects)|disinfect(?:s|ing|ant)?|saniti[sz](?:e|es|ed|ing|er)|(?:mold|mould|mildew)[- ]resistant|repels? (?:bugs|insects|mosquitoes|ticks|fleas)|insect repellent)\b/gi,
       reason: (t) => `“${t}” is a pesticide claim. Amazon blocks it unless the product is registered with the EPA.` },
     { code: 'guarantee', pattern: /\b(?:money[- ]back guarantee|satisfaction guaranteed|money[- ]back|guarantee[ds]?|risk[- ]free|full refund)\b/gi,
-      reason: (t) => `Guarantee “${t}”. Amazon doesn’t allow guarantees in a listing.` },
+      reason: (t) => `“${t}” is a guarantee. Amazon doesn’t allow guarantees in a listing.` },
     { code: 'promo', pattern: /(?:\bbest[- ]sell(?:er|ers|ing)\b|(?<![\w#])#1\b|\bnumber one\b|\bfree (?:shipping|delivery|returns|gift)\b|\b\d+\s?% off\b|\bon sale\b|\bsale price\b|\blimited[- ]time\b|\bhot (?:item|deal|sale)\b|\bbuy now\b|\border now\b|\bcheapest\b|\b(?:lowest|best) (?:price|deal)\b)/gi,
       reason: (t) => `Promotional wording “${t}”. Amazon doesn’t allow it in a listing.` }
   ];
