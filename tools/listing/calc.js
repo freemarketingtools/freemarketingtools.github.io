@@ -72,7 +72,7 @@
   const TRAILING = /[.,;:!?)]+$/;
 
   const count = (n) => n.toLocaleString('en-US');
-  const plural = (n, word, many = `${word}s`) => `${n} ${n === 1 ? word : many}`;
+  const plural = (n, word) => `${n} ${n === 1 ? word : `${word}s`}`;
   const quoted = (words) => words.map((w) => `“${w}”`).join(', ');
   const chars = (text) => [...text].length;
   const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -239,11 +239,12 @@
   }
 
   function verdict({ reject, weak }) {
-    const weakens = (n) => `${plural(n, 'thing')} ${n === 1 ? 'weakens' : 'weaken'} it`;
+    const things = plural(weak, 'thing');
+    const verb = weak === 1 ? 'weakens' : 'weaken';
     if (reject) {
-      return { level: 'reject', headline: `${plural(reject, 'problem')} would block this listing`, sub: weak ? `Plus ${plural(weak, 'thing')} that ${weak === 1 ? 'weakens' : 'weaken'} it.` : '' };
+      return { level: 'reject', headline: `${plural(reject, 'problem')} would block this listing`, sub: weak ? `Plus ${things} that ${verb} it.` : '' };
     }
-    if (weak) return { level: 'weak', headline: 'Nothing would block this listing', sub: `${weakens(weak)}.` };
+    if (weak) return { level: 'weak', headline: 'Nothing would block this listing', sub: `${things} ${verb} it.` };
     return { level: 'ok', headline: 'Ready to publish', sub: 'Nothing Amazon would reject or suppress.' };
   }
 
