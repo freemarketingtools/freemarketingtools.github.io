@@ -58,6 +58,15 @@ ship.
   and banned claims (medical, FDA, pesticide-style, guarantees), each with the exact phrase highlighted
   in place. A headline verdict and Copy problem list. Nothing is uploaded. Rules cite Amazon's Seller
   Central pages; the bullet and description limits, ALL-CAPS rule and phrase lists are labelled estimates.
+- **Day 7 — Ad safe-zone checker.** Drop in a vertical ad (PNG, JPEG, WebP, MP4 or WebM) and see it on
+  TikTok, Instagram Reels, Instagram Stories, Facebook Reels and YouTube Shorts at once, each under a
+  neutral mock of that app's buttons, captions and profile bar, with the covered zones shaded coral. It
+  scans those zones for sharp, high-contrast detail like text and logos and says per platform whether
+  something important may sit under them, plus aspect ratio (letterboxed or cropped), resolution and video
+  length checks. Each platform can be switched off, the mock UI can be hidden, and Copy problem list
+  gives the findings. A canvas-drawn example opens on 3 of 5 platforms covering its text. Nothing is
+  uploaded. Reels and Stories zones are Meta's published figures; TikTok, Shorts and the cover check
+  itself are labelled estimates.
 - **The hub.** A brand column with a 10-segment progress bar, and a grid of all 10 days: shipped tools as cards with a screenshot, future days locked. A floating Made with Omniscio badge, the
   same one an Omniscio Share carries, and a link preview in the hub's own look that stays neutral for X.
 - **Phone-first.** Every page is checked at 390 px wide with no sideways scrolling.
