@@ -383,8 +383,8 @@ const pictureFile = (page, [width, height, textAt]) => page.evaluate(([w, h, at]
   c.toBlob((b) => b.arrayBuffer().then((buf) => resolve(Array.from(new Uint8Array(buf)))), 'image/png');
 }), [width, height, textAt]).then((bytes) => Buffer.from(bytes));
 
-// A real WebM recorded in the page (MediaRecorder leaves its length unknown), with a caption at 73-78% of
-// the height: under TikTok's caption and both Reels and Shorts, just above Stories' 80%.
+// A real WebM recorded in the page, with a caption at 73-78% of the height that changes every frame:
+// under TikTok's caption and both Reels and Shorts, just above Stories' 80%.
 const recordedVideo = (page) => page.evaluate(() => new Promise((resolve) => {
   const c = Object.assign(document.createElement('canvas'), { width: 540, height: 960 });
   const g = c.getContext('2d');
@@ -457,7 +457,14 @@ async function checkSafezoneFiles(page) {
   await dropFile(page, 'clip.webm', 'video/webm', await recordedVideo(page));
   await headlineIs(page, '4 of 5 platforms would cover your text');
   if (!/Read clip\.webm in your browser · 540×960 video/.test(await page.textContent('#file-status'))) return `video: ${await page.textContent('#file-status')}`;
-  if (!/Couldn’t read the video’s length/.test(await page.textContent('#checks'))) return 'unknown video length was not said';
+  if (!/Only 540 pixels wide/.test(await page.textContent('#checks'))) return 'the 540px video was not flagged as soft';
+  const frame = () => page.evaluate(() => {
+    const c = document.querySelector('.phone-card[data-platform="tiktok"] canvas');
+    return c.getContext('2d').getImageData(0, 0, c.width, c.height).data.reduce((a, b, i) => (a * 31 + b * (i % 97)) % 1e9, 7);
+  });
+  const first = await frame();
+  await page.waitForTimeout(600);
+  if (await frame() === first) return 'the video does not play in the previews';
   await page.click('#use-example');
   return await page.textContent('#headline') === EXAMPLE_HEADLINE ? null : 'Back to the example did not restore it';
 }
