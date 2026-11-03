@@ -45,7 +45,7 @@ test('a valid name passes clean', () => {
 test('a name over 40 characters is rejected; exactly 40 is fine', () => {
   const name41 = 'a'.repeat(LIMITS.name + 1);
   assert.deepEqual(codes(name41, name41), ['tooLong']);
-  assert.match(issuesOf(name41, name41)[0].text, /41 characters/);
+  assert.match(issuesOf(name41, name41)[0].text, /^The name is 41 characters long\. GA4 doesn’t log names over 40\.$/);
   assert.deepEqual(codes('a'.repeat(LIMITS.name), 'a'.repeat(LIMITS.name)), []);
 });
 

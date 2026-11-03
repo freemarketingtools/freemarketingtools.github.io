@@ -17,7 +17,7 @@
   .layout { display: grid; gap: var(--space-3); grid-template-areas: "hero" "inputs" "list"; }
   .layout > * { min-width: 0; }
   @media (min-width: 980px) {
-    .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "inputs hero" "list hero"; align-items: start; }
+    .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto 1fr; grid-template-areas: "inputs hero" "list hero"; align-items: start; }
   }
 
   /* Buttons */

@@ -149,7 +149,7 @@
   function shapeIssues(name, label, extra) {
     const issues = [];
     const length = [...name].length;
-    if (length > LIMITS.name) issues.push(issue('reject', 'tooLong', `${label}${length} characters. GA4 doesn’t log names over ${LIMITS.name}.`, extra));
+    if (length > LIMITS.name) issues.push(issue('reject', 'tooLong', `${label}is ${length} characters long. GA4 doesn’t log names over ${LIMITS.name}.`, extra));
     if (!VALID_START.test(name)) issues.push(issue('reject', 'badStart', `${label}starts with “${[...name][0]}”. Names must start with a letter.`, extra));
     if (name.match(BAD_CHARS)) issues.push(issue('reject', 'badChars', `${label}has ${describeChars(name)}. Only letters, numbers and underscores are allowed.`, extra));
     return issues;
