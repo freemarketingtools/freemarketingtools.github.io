@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GA4 event name checker</title>
+<meta name="description" content="Paste your GA4 event list and see, before you ship the tracking, which events GA4 will reject, silently drop, or split into separate reports. Fix every name in one click.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../../shared/tokens.css">
+<style>
+  .tool { max-width: 1120px; margin: 0 auto; padding: var(--space-4) var(--space-3) var(--space-5); }
+  .top { margin-bottom: var(--space-3); }
+  .top h1 { font-size: clamp(2rem, 6vw, 3.1rem); line-height: 1.02; margin: var(--space-2) 0 var(--space-2); letter-spacing: -.035em; }
+  .top h1 span { color: var(--lime); }
+  .top p { margin: 0; max-width: 60ch; color: var(--muted); }
+
+  .layout { display: grid; gap: var(--space-3); grid-template-areas: "hero" "inputs" "list"; }
+  .layout > * { min-width: 0; }
+  @media (min-width: 980px) {
+    .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto 1fr; grid-template-areas: "inputs hero" "list hero"; align-items: start; }
+  }
+
+  /* Buttons */
+  .btn { min-height: var(--tap); padding: 0 20px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); background: var(--panel-2); color: var(--text); font: 650 .95rem var(--font); cursor: pointer; transition: border-color .15s ease; }
+  .btn:hover { border-color: var(--faint); }
+  .btn.primary { background: var(--lime); border-color: var(--lime); color: var(--lime-ink); }
+  .btn.primary:hover { filter: brightness(1.06); }
+  .btn.small { min-height: 34px; padding: 0 12px; font-size: .82rem; }
+  .btn:disabled { opacity: .4; cursor: default; filter: none; }
+  .btn[data-done="true"] { background: var(--panel-2); color: var(--lime); border-color: var(--lime); }
+  .actions { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+  .actions .btn.primary { flex: 1 1 180px; }
+  .status { color: var(--muted); font-size: .9rem; }
+  .status:empty { display: none; }
+  .manual { position: relative; width: 100%; margin-top: var(--space-2); padding: 10px 12px; font: 500 .85rem/1.5 var(--mono); color: var(--text); background: var(--ink); border: 1px solid var(--lime); border-radius: var(--radius-sm); resize: vertical; }
+
+  /* Input */
+  .inputs { grid-area: inputs; padding: var(--space-3); display: grid; gap: var(--space-2); }
+  .inputs label { font-weight: 600; }
+  .hint { margin: 0; color: var(--faint); font-size: .85rem; }
+  .hint code { font: 500 .82rem var(--mono); color: var(--muted); }
+  .private { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--muted); font-size: .88rem; }
+  .private .dot { background: var(--lime); }
+  textarea.events {
+    width: 100%; min-height: 330px; padding: 12px 14px; resize: vertical;
+    font: 500 .86rem/1.65 var(--mono); color: var(--text); white-space: pre; overflow-x: auto;
+    background: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius-sm); transition: border-color .15s ease;
+  }
+  textarea.events:hover { border-color: var(--faint); }
+  textarea.events:focus { border-color: var(--lime); outline: none; box-shadow: 0 0 0 3px var(--lime-soft); }
+
+  /* Before / after */
+  .fixed { display: grid; gap: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--line); }
+  .fixed-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
+  .changes { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); max-height: 340px; overflow-y: auto; }
+  .changes li { display: grid; grid-template-columns: 28px 1fr; gap: 2px var(--space-2); padding: 8px 10px; border-radius: var(--radius-sm); background: var(--panel-2); border: 1px solid var(--line); }
+  .changes .n { grid-row: 1 / span 3; font: 600 .78rem/1.7 var(--mono); color: var(--faint); }
+  .changes del, .changes ins { font: 500 .84rem/1.5 var(--mono); overflow-wrap: anywhere; text-decoration: none; }
+  .changes del { color: var(--faint); }
+  .changes del::before { content: "− "; color: var(--coral); }
+  .changes ins { color: var(--lime); }
+  .changes ins::before { content: "+ "; }
+  .changes small { color: var(--muted); font-size: .8rem; }
+
+  /* Result */
+  .hero { grid-area: hero; padding: var(--space-3); overflow: hidden; position: relative; }
+  .hero::before { content: ""; position: absolute; inset: -40% -20% auto auto; width: 320px; height: 320px; border-radius: 50%; background: radial-gradient(var(--lime-soft), transparent 70%); pointer-events: none; }
+  .hero[data-state="reject"]::before { background: radial-gradient(var(--coral-soft), transparent 70%); }
+  .hero[data-state="weak"]::before { background: radial-gradient(var(--amber-soft), transparent 70%); }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); position: relative; }
+  .chip { font: 600 12px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; padding: 7px 10px; border-radius: 999px; color: var(--lime-ink); background: var(--lime); white-space: nowrap; }
+  .chip[data-state="reject"] { background: var(--coral); color: #1a0705; }
+  .chip[data-state="weak"] { background: var(--amber); color: #1a1205; }
+  .chip[data-state="empty"] { background: var(--panel-2); color: var(--muted); }
+  .headline { position: relative; margin: var(--space-3) 0 var(--space-1); font-size: clamp(2.2rem, 6vw, 3.2rem); font-weight: 750; line-height: 1.04; letter-spacing: -.035em; overflow-wrap: anywhere; }
+  .hero[data-state="ok"] .headline { color: var(--lime); }
+  .sub { position: relative; margin: 0; color: var(--muted); font-size: .95rem; }
+  .sub:empty { display: none; }
+  .checks { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-1); position: relative; }
+  .check { padding: 10px 12px; border-radius: var(--radius-sm); background: var(--panel-2); border: 1px solid var(--line); border-left: 3px solid var(--coral); font-size: .9rem; line-height: 1.4; }
+  .check[data-level="weak"] { border-left-color: var(--amber); }
+  .check .where { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin-bottom: 6px; }
+  .check .where code { font: 650 .86rem var(--mono); color: var(--text); overflow-wrap: anywhere; }
+  .check .where span { font: 600 11px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+  .whys { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .whys li { display: grid; grid-template-columns: auto 1fr; gap: var(--space-2); align-items: start; overflow-wrap: anywhere; }
+  .whys .dot { margin-top: 6px; }
+  .tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line-strong); font: 600 10px/1.6 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--coral); flex: none; display: inline-block; }
+  [data-level="weak"] > .dot, .dot.weak { background: var(--amber); }
+  .clear { display: flex; align-items: center; gap: 8px; color: var(--lime); font-size: .92rem; margin: var(--space-3) 0 0; position: relative; }
+  .clear .dot { background: var(--lime); }
+  .key { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); color: var(--faint); font-size: .82rem; margin: var(--space-3) 0; position: relative; }
+  .key span { display: inline-flex; align-items: center; gap: 6px; }
+
+  /* The list, checked in place */
+  .list { grid-area: list; padding: var(--space-3); }
+  .list .label { display: block; margin-bottom: var(--space-2); }
+  .lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font: 500 .86rem/1.6 var(--mono); }
+  .lines li { display: grid; grid-template-columns: 28px 1fr; gap: var(--space-2); padding: 3px 8px; border-radius: 8px; }
+  .lines li[data-level="reject"] { background: var(--coral-soft); }
+  .lines li[data-level="weak"] { background: var(--amber-soft); }
+  .lines .n { color: var(--faint); text-align: right; }
+  .lines .text { color: var(--muted); overflow-wrap: anywhere; }
+  .lines .name { color: var(--text); }
+  mark { color: #1a0705; background: var(--coral); border-radius: 4px; padding: 0 2px; }
+  mark[data-level="weak"] { color: #1a1205; background: var(--amber); }
+  .lines small { font-family: var(--font); color: var(--amber); margin-left: 6px; }
+  .none { margin: 0; color: var(--faint); font-size: .9rem; }
+
+  .notes { color: var(--muted); font-size: .88rem; line-height: 1.6; padding: var(--space-3); margin-top: var(--space-3); }
+  .notes p { margin: 0 0 var(--space-2); }
+  .notes p:last-child { margin-bottom: 0; }
+  .notes b { color: var(--text); }
+
+  footer { margin-top: var(--space-4); }
+  [hidden] { display: none !important; }
+  @media (max-width: 520px) {
+    .hero, .inputs, .list { padding: var(--space-3) var(--space-2) var(--space-2); }
+    textarea.events { min-height: 260px; }
+  }
+</style>
+</head>
+<body>
+<main class="tool">
+  <header class="top">
+    <span class="label">Free tool · Day 8 of 10</span>
+    <h1>GA4 event name <span>checker</span></h1>
+    <p>Paste your event list and see, before you ship the tracking, which events GA4 will reject, silently drop, or split into separate reports. Then fix every name in one click.</p>
+  </header>
+
+  <div class="layout">
+    <section class="inputs panel" aria-label="Your events">
+      <label for="events">Your events</label>
+      <p class="hint">One per line, parameters after a colon: <code>add_to_cart: currency, value, items</code>. A column or rows pasted from a sheet work too.</p>
+      <p class="private"><span class="dot"></span>Checked in your browser. Nothing is uploaded.</p>
+      <textarea class="events" id="events" rows="16" spellcheck="false" autocomplete="off"></textarea>
+      <div class="actions">
+        <button type="button" class="btn" id="fix" title="Rewrite every name to valid snake_case and use Google’s recommended names">Fix names</button>
+        <span class="status" id="fix-status" aria-live="polite"></span>
+      </div>
+      <div class="fixed" id="fixed" hidden>
+        <div class="fixed-head">
+          <span class="label" id="fixed-title">Before → after</span>
+          <button type="button" class="btn small" id="undo">Undo</button>
+        </div>
+        <ol class="changes" id="changes" aria-labelledby="fixed-title"></ol>
+        <div class="actions">
+          <button type="button" class="btn primary" id="copy-fixed">Copy fixed list</button>
+          <span class="status" id="copy-fixed-status" aria-live="polite"></span>
+        </div>
+        <textarea class="manual" id="copy-fixed-manual" rows="5" readonly hidden aria-label="Fixed list, selected for copying"></textarea>
+      </div>
+    </section>
+
+    <section class="hero panel" id="hero" data-state="ok" aria-label="Result">
+      <div class="row">
+        <span class="label">Result</span>
+        <span class="chip" id="chip"></span>
+      </div>
+      <p class="headline" id="headline" aria-live="polite"></p>
+      <p class="sub" id="sub"></p>
+      <ul class="checks" id="checks" aria-label="Checks per event"></ul>
+      <p class="clear" id="clear" hidden><span class="dot"></span>Every name follows GA4’s rules.</p>
+      <p class="key"><span><span class="dot"></span>GA4 rejects or drops it</span><span><span class="dot weak"></span>Splits or weakens reports</span></p>
+      <div class="actions">
+        <button type="button" class="btn primary" id="copy" title="Copy problem list (Ctrl+Enter)">Copy problem list</button>
+        <span class="status" id="copy-status" aria-live="polite"></span>
+      </div>
+      <textarea class="manual" id="copy-manual" rows="5" readonly hidden aria-label="Problem list, selected for copying"></textarea>
+    </section>
+
+    <section class="list panel" aria-label="Your list, checked">
+      <span class="label">Your list, checked</span>
+      <ol class="lines" id="lines"></ol>
+    </section>
+  </div>
+
+  <section class="notes panel">
+    <p><b>Where the rules come from.</b> Google’s <a href="https://support.google.com/analytics/answer/13316687" target="_blank" rel="noopener">event naming rules</a> (start with a letter; only letters, numbers and underscores; case-sensitive; reserved names and parameter prefixes), its <a href="https://support.google.com/analytics/answer/9267744" target="_blank" rel="noopener">collection limits</a> (40-character event and parameter names, 25 parameters per event, anything over a limit isn’t logged), the <a href="https://developers.google.com/analytics/devguides/collection/protocol/ga4/reference" target="_blank" rel="noopener">Measurement Protocol reference</a> (reserved event names, app-only events), the app SDK’s <a href="https://firebase.google.com/docs/reference/android/com/google/firebase/analytics/FirebaseAnalytics.Event" target="_blank" rel="noopener">event naming rules</a> (reserved google_, ga_ and firebase_ prefixes; invalid events are dropped) and the list of <a href="https://support.google.com/analytics/answer/9267735" target="_blank" rel="noopener">recommended events</a>.</p>
+    <p><b>Web and app streams differ.</b> screen_view, in_app_purchase and ad_impression are only accepted by app streams. page_view, scroll, click, form_start, form_submit, file_download, the video events and view_search_results are collected automatically on web, so they’re a warning there, not an error. App streams also allow at most 500 different event names per user; web streams have no such cap.</p>
+    <p><b>Some checks are estimates.</b> Google states the google_, ga_ and firebase_ event prefixes for app streams; we treat them as reserved on web too. The near-miss suggestions come from our own list of common alternative names (purchase_complete, initiate_checkout, view_product and the like), not from Google.</p>
+  </section>
+
+  <footer>
+    <a class="made" href="https://omniscio.com" target="_blank" rel="noopener"><img src="../../docs/orb.png" alt="" width="24" height="24"><span>Built with <b>Omniscio</b></span></a>
+  </footer>
+</main>
+<script src="calc.js"></script>
+<script>
+  (function () {
+    'use strict';
+    const { EXAMPLE, checkList, verdict, problemList, duplicateText, fixList } = window.Ga4Calc;
+    const COPIED_MS = 1600;
+    const COPY_KEY = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘C' : 'Ctrl+C';
+    const MESSAGES = {
+      copy: 'Copy problem list', copyFixed: 'Copy fixed list', copied: 'Copied ✓',
+      manual: `Your browser blocked copying here. The text is selected: press ${COPY_KEY}.`,
+      chips: { reject: (n) => `${n} rejected`, weak: (n) => `${n} weakening`, tidy: 'Tidy up', ok: 'All clear', empty: 'Waiting' },
+      line: (n) => `Line ${n}`, duplicateTag: 'duplicate line',
+      streams: { web: 'web streams' },
+      fixedTitle: (n) => `Before → after · ${n} ${n === 1 ? 'line' : 'lines'} changed`,
+      merged: (n) => `Merged into line ${n}`,
+      nothingToFix: 'Nothing to fix: every name is already valid snake_case.',
+      empty: 'Your checked list shows up here.'
+    };
+    const $ = (id) => document.getElementById(id);
+    const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+    let result;
+    let beforeFix = null;
+    let fixedText = '';
+
+    // --- Copy: Clipboard API, then the older copy command, then select the text for the person ---
+    async function copyText(text, manualBox) {
+      manualBox.hidden = true;
+      try { await navigator.clipboard.writeText(text); return true; } catch { /* blocked: try the next way */ }
+      const scratch = el('textarea');
+      scratch.value = text;
+      scratch.setAttribute('readonly', '');
+      scratch.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+      const focused = document.activeElement;
+      document.body.append(scratch);
+      scratch.focus();
+      scratch.select();
+      let copied = false;
+      try { copied = document.execCommand('copy'); } catch { /* unsupported: leave false */ }
+      scratch.remove();
+      if (focused) focused.focus();
+      if (copied) return true;
+      manualBox.value = text;
+      manualBox.hidden = false;
+      manualBox.focus();
+      manualBox.select();
+      return false;
+    }
+
+    async function copyWithFeedback(text, button, status, manualBox, label) {
+      const copied = await copyText(text, manualBox);
+      status.textContent = copied ? '' : MESSAGES.manual;
+      if (!copied) return;
+      button.textContent = MESSAGES.copied;
+      button.dataset.done = 'true';
+      setTimeout(() => { button.textContent = label; button.dataset.done = 'false'; }, COPIED_MS);
+    }
+
+    const copyProblems = () => {
+      if (!$('copy').disabled) copyWithFeedback(problemList(result), $('copy'), $('copy-status'), $('copy-manual'), MESSAGES.copy);
+    };
+
+    // --- Result: the verdict and one card per event with problems ---
+    function why(text, level, stream) {
+      const li = el('li');
+      li.dataset.level = level;
+      const span = el('span', '', text);
+      if (stream) span.append(el('span', 'tag', MESSAGES.streams[stream]));
+      li.append(el('span', 'dot'), span);
+      return li;
+    }
+
+    function card(name, line, level, whys) {
+      const li = el('li', 'check');
+      li.dataset.level = level;
+      const where = el('div', 'where');
+      where.append(el('code', '', name || '(no name)'), el('span', '', MESSAGES.line(line)));
+      const list = el('ul', 'whys');
+      list.append(...whys);
+      li.append(where, list);
+      return li;
+    }
+
+    function renderVerdict() {
+      const v = verdict(result);
+      $('hero').dataset.state = v.level;
+      $('chip').dataset.state = v.level;
+      const chips = MESSAGES.chips;
+      $('chip').textContent = v.level === 'reject' ? chips.reject(result.reject)
+        : v.level === 'weak' ? (result.weak ? chips.weak(result.weak) : chips.tidy) : chips[v.level];
+      $('headline').textContent = v.headline;
+      $('sub').textContent = v.sub;
+      const cards = result.events.filter((e) => e.issues.length)
+        .map((e) => card(e.name, e.line, e.level, e.issues.map((i) => why(i.text, i.level, i.stream))));
+      const dupes = result.duplicates.map((d) => card(d.name, d.lines[1], 'weak', [why(duplicateText(d.lines), 'weak')]));
+      $('checks').replaceChildren(...cards, ...dupes);
+      $('clear').hidden = v.level !== 'ok';
+      $('copy').disabled = cards.length + dupes.length === 0;
+    }
+
+    // --- The list, re-drawn from text nodes with each problem marked in place (never HTML) ---
+    const worstOf = (levels) => (levels.includes('reject') ? 'reject' : levels.length ? 'weak' : null);
+
+    function marked(text, levels) {
+      const level = worstOf(levels);
+      if (!level) return document.createTextNode(text);
+      const mark = el('mark', '', text);
+      mark.dataset.level = level;
+      return mark;
+    }
+
+    function lineItem(l) {
+      const li = el('li');
+      const duplicate = l.duplicateOf === null ? [] : ['weak'];
+      const lineLevel = worstOf(l.issues.map((i) => i.level).concat(duplicate));
+      if (lineLevel) li.dataset.level = lineLevel;
+      const nameLevels = l.issues.filter((i) => !i.param && i.code !== 'tooManyParams').map((i) => i.level);
+      const name = el('span', 'name');
+      name.append(marked(l.name || ' ', nameLevels.concat(duplicate)));
+      const text = el('span', 'text');
+      text.append(name);
+      l.params.forEach((p, n) => text.append(n ? ', ' : ': ', marked(p, l.issues.filter((i) => i.param === p).map((i) => i.level))));
+      if (duplicate.length) text.append(el('small', '', MESSAGES.duplicateTag));
+      li.append(el('span', 'n', String(l.line)), text);
+      return li;
+    }
+
+    function renderLines() {
+      $('lines').replaceChildren(...(result.lines.length ? result.lines.map(lineItem) : [el('li', 'none', MESSAGES.empty)]));
+    }
+
+    function update() {
+      result = checkList($('events').value);
+      renderVerdict();
+      renderLines();
+      $('copy-manual').hidden = true;
+      $('copy-status').textContent = '';
+    }
+
+    // --- Fix names: rewrite the box, show before/after, keep the old text for Undo ---
+    function changeItem(c) {
+      const li = el('li');
+      li.append(el('span', 'n', String(c.line)), el('del', '', c.before), el('ins', '', c.after));
+      if (c.mergedInto) li.append(el('small', '', MESSAGES.merged(c.mergedInto)));
+      return li;
+    }
+
+    function fixNames() {
+      const fixed = fixList($('events').value);
+      if (!fixed.changes.length) { $('fix-status').textContent = MESSAGES.nothingToFix; return; }
+      beforeFix = $('events').value;
+      fixedText = fixed.text;
+      $('events').value = fixed.text;
+      $('changes').replaceChildren(...fixed.changes.map(changeItem));
+      $('fixed-title').textContent = MESSAGES.fixedTitle(fixed.changes.length);
+      $('fixed').hidden = false;
+      $('copy-fixed-manual').hidden = true;
+      $('copy-fixed-status').textContent = '';
+      update();
+    }
+
+    function hideFixed() {
+      $('fixed').hidden = true;
+      $('fix-status').textContent = '';
+    }
+
+    $('events').value = EXAMPLE;
+    $('events').addEventListener('input', () => { hideFixed(); update(); });
+    $('fix').addEventListener('click', fixNames);
+    $('undo').addEventListener('click', () => { $('events').value = beforeFix; hideFixed(); update(); $('events').focus(); });
+    $('copy-fixed').addEventListener('click', () => copyWithFeedback(fixedText, $('copy-fixed'), $('copy-fixed-status'), $('copy-fixed-manual'), MESSAGES.copyFixed));
+    $('copy').addEventListener('click', copyProblems);
+    document.addEventListener('keydown', (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key !== 'Enter') return;
+      e.preventDefault();
+      copyProblems();
+    });
+    update();
+  })();
+</script>
+</body>
+</html>

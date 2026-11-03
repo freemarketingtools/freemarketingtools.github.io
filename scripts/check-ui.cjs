@@ -475,7 +475,54 @@ async function checkSafezone(page) {
     || await checkSafezoneControls(page) || await checkSafezoneFiles(page);
 }
 
-const TOOL_CHECKS = { roas: checkRoas, utm: checkUtm, serp: checkSerp, rsa: checkRsa, feed: checkFeed, listing: checkListing, safezone: checkSafezone };
+// --- GA4: the example's verdict and marks, copy, Fix names with before/after and Undo, edits ---
+
+const GA4_EXAMPLE_HEADLINE = '7 of 15 events would break your reports';
+
+async function checkGa4Example(page) {
+  if (await page.textContent('#headline') !== GA4_EXAMPLE_HEADLINE) return `example headline: ${await page.textContent('#headline')}`;
+  if (await page.locator('#checks .check[data-level="reject"]').count() !== 5) return 'expected 5 coral event cards';
+  if (await page.locator('#checks .check[data-level="weak"]').count() !== 3) return 'expected 3 amber cards (2 events and 1 duplicate)';
+  const marks = await page.locator('#lines mark').allTextContents();
+  for (const text of ['addToCart', 'add-to-cart', 'begin checkout', 'session_start', '_review_source', 'purchase_complete']) {
+    if (!marks.includes(text)) return `“${text}” is not marked in the list: ${JSON.stringify(marks)}`;
+  }
+  return null;
+}
+
+async function checkGa4Fix(page) {
+  await page.click('#fix');
+  if (!/^begin_checkout: currency, value, coupon, items$/m.test(await page.inputValue('#events'))) return 'Fix names did not rewrite begin checkout';
+  if (await page.textContent('#headline') !== '1 of 13 events would break your reports') return `after Fix names: ${await page.textContent('#headline')}`;
+  if (await page.locator('#changes li').count() !== 7) return `before/after lists ${await page.locator('#changes li').count()} lines, expected 7`;
+  if (!/Merged into line 4/.test(await page.textContent('#changes'))) return 'merged lines are not explained';
+  await stubClipboard(page, true);
+  await page.click('#copy-fixed');
+  if (await page.evaluate(() => window.__copied) !== await page.inputValue('#events')) return 'Copy fixed list did not copy the fixed list';
+  const scroll = await sidewaysScroll(page);
+  if (scroll > 0) return `before/after scrolls sideways by ${scroll}px`;
+  await page.click('#undo');
+  if (await page.textContent('#headline') !== GA4_EXAMPLE_HEADLINE || await page.isVisible('#fixed')) return 'Undo did not restore the example';
+  return null;
+}
+
+async function checkGa4Edits(page) {
+  await page.fill('#events', 'page_view');
+  if (!/web streams/.test(await page.textContent('#checks'))) return 'a web-only rule is not labelled web streams';
+  await page.fill('#events', 'login\nsign_up');
+  if (await page.textContent('#headline') !== 'All 2 events follow GA4’s rules') return `clean list: ${await page.textContent('#headline')}`;
+  if (await page.isHidden('#clear') || !await page.isDisabled('#copy')) return 'clean list did not show all clear with Copy off';
+  await page.click('#fix');
+  return /Nothing to fix/.test(await page.textContent('#fix-status')) ? null : 'Fix names on a clean list did not say nothing to fix';
+}
+
+async function checkGa4(page) {
+  return await checkGa4Example(page)
+    || await checkProblemListCopy(page, /^7 of 15 events would break your reports\n\nLine 5, addToCart \(weakens reports\): Close to Google’s recommended add_to_cart\./)
+    || await checkGa4Fix(page) || await checkGa4Edits(page);
+}
+
+const TOOL_CHECKS = { roas: checkRoas, utm: checkUtm, serp: checkSerp, rsa: checkRsa, feed: checkFeed, listing: checkListing, safezone: checkSafezone, ga4: checkGa4 };
 
 (async () => {
   const server = serve().listen(0);
