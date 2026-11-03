@@ -40,5 +40,12 @@
     "blurb": "Paste a listing and see what Amazon would reject or suppress before you publish: title, bullet and search term limits (in bytes), banned characters, repeated words and claims Amazon doesn't allow, highlighted in place.",
     "url": "https://shares.omniscio.com/s/98c15212d901c74d879eba0f2ca13925c17194e150fccad325a7708cdc972746",
     "shot": "shots/listing.png"
+  },
+  {
+    "day": 7,
+    "name": "Ad safe-zone checker",
+    "blurb": "Drop in a vertical ad and see it on TikTok, Reels, Stories, Facebook Reels and Shorts at once, with the parts each app's buttons and captions cover. It checks those spots for text and logos for you.",
+    "url": "https://shares.omniscio.com/s/2048753784d4b1a676ab25c1d54218ae7e4040bdf4baa03b1be5a2329aeb713c",
+    "shot": "shots/safezone.png"
   }
 ]
