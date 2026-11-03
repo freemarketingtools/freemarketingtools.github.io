@@ -67,6 +67,18 @@ ship.
   gives the findings. A canvas-drawn example opens on 3 of 5 platforms covering its text. Nothing is
   uploaded. Reels and Stories zones are Meta's published figures; TikTok, Shorts and the cover check
   itself are labelled estimates.
+- **Day 8 — GA4 event name checker.** Paste a tracking plan (one event per line, parameters after a colon,
+  or a column or rows from a sheet) and see which events GA4 rejects or drops and which quietly split or
+  weaken reports, before you ship the tracking. Coral flags names over 40 characters, names not starting
+  with a letter, spaces, dashes and dots, reserved names like `session_start`, reserved prefixes
+  (`google_`, `ga_`, `firebase_`, and `_` or `gtag.` on parameters), bad parameter names and more than 25
+  parameters. Amber flags spellings that only differ by case or style (`addToCart` next to `add_to_cart`),
+  near-misses of Google's recommended events (`purchase_complete`, `begin-checkout`) with what you lose,
+  names GA4 already collects on web, and duplicate lines. Fix names rewrites every line to snake_case and
+  the recommended names, keeps the parameters, merges lines that became the same event and shows a
+  before/after with Undo and Copy fixed list. A headline verdict, the list highlighted in place and Copy
+  problem list. Nothing is uploaded. Rules cite Google's help and developer pages; web-only and app-only
+  rules are labelled, and the web side of the event-name prefixes and the near-miss list are estimates.
 - **The hub.** A brand column with a 10-segment progress bar, and a grid of all 10 days: shipped tools as cards with a screenshot, future days locked. A floating Made with Omniscio badge, the
   same one an Omniscio Share carries, and a link preview in the hub's own look that stays neutral for X.
 - **Phone-first.** Every page is checked at 390 px wide with no sideways scrolling.
