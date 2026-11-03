@@ -197,7 +197,7 @@
       copy: 'Copy problem list', copyFixed: 'Copy fixed list', copied: 'Copied ✓',
       manual: `Your browser blocked copying here. The text is selected: press ${COPY_KEY}.`,
       chips: { reject: (n) => `${n} rejected`, weak: (n) => `${n} weakening`, tidy: 'Tidy up', ok: 'All clear', empty: 'Waiting' },
-      line: (n) => `Line ${n}`, duplicate: 'duplicate', duplicateTag: 'duplicate line',
+      line: (n) => `Line ${n}`, duplicateTag: 'duplicate line',
       streams: { web: 'web streams' },
       fixedTitle: (n) => `Before → after · ${n} ${n === 1 ? 'line' : 'lines'} changed`,
       merged: (n) => `Merged into line ${n}`,
@@ -286,25 +286,28 @@
     }
 
     // --- The list, re-drawn from text nodes with each problem marked in place (never HTML) ---
-    function marked(text, issues, extraLevel) {
-      const levels = issues.map((i) => i.level).concat(extraLevel ? [extraLevel] : []);
-      if (!levels.length) return document.createTextNode(text);
+    const worstOf = (levels) => (levels.includes('reject') ? 'reject' : levels.length ? 'weak' : null);
+
+    function marked(text, levels) {
+      const level = worstOf(levels);
+      if (!level) return document.createTextNode(text);
       const mark = el('mark', '', text);
-      mark.dataset.level = levels.includes('reject') ? 'reject' : 'weak';
+      mark.dataset.level = level;
       return mark;
     }
 
     function lineItem(l) {
       const li = el('li');
-      const own = l.issues.concat(l.duplicateOf === null ? [] : [{ level: 'weak' }]);
-      if (own.length) li.dataset.level = own.some((i) => i.level === 'reject') ? 'reject' : 'weak';
-      const text = el('span', 'text');
-      const nameIssues = l.issues.filter((i) => !i.param && i.code !== 'tooManyParams');
+      const duplicate = l.duplicateOf === null ? [] : ['weak'];
+      const lineLevel = worstOf(l.issues.map((i) => i.level).concat(duplicate));
+      if (lineLevel) li.dataset.level = lineLevel;
+      const nameLevels = l.issues.filter((i) => !i.param && i.code !== 'tooManyParams').map((i) => i.level);
       const name = el('span', 'name');
-      name.append(marked(l.name || ' ', nameIssues, l.duplicateOf === null ? null : 'weak'));
+      name.append(marked(l.name || ' ', nameLevels.concat(duplicate)));
+      const text = el('span', 'text');
       text.append(name);
-      l.params.forEach((p, n) => text.append(n ? ', ' : ': ', marked(p, l.issues.filter((i) => i.param === p))));
-      if (l.duplicateOf !== null) text.append(el('small', '', MESSAGES.duplicateTag));
+      l.params.forEach((p, n) => text.append(n ? ', ' : ': ', marked(p, l.issues.filter((i) => i.param === p).map((i) => i.level))));
+      if (duplicate.length) text.append(el('small', '', MESSAGES.duplicateTag));
       li.append(el('span', 'n', String(l.line)), text);
       return li;
     }

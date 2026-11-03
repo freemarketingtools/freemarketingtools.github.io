@@ -194,8 +194,7 @@
 
   function nameIssues(name, group) {
     if (name === '') return [issue('reject', 'noName', 'No event name before the parameters.')];
-    const shape = shapeIssues(name, 'The name ');
-    return [...shape, ...reservedIssues(name), ...quietIssues(name, group)];
+    return [...shapeIssues(name, 'The name '), ...reservedIssues(name), ...quietIssues(name, group)];
   }
 
   // --- Groups: every spelling that shares a loose key, and the one name they should all become ---
