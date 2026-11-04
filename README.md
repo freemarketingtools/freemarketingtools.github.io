@@ -79,6 +79,15 @@ ship.
   before/after with Undo and Copy fixed list. A headline verdict, the list highlighted in place and Copy
   problem list. Nothing is uploaded. Rules cite Google's help and developer pages; web-only and app-only
   rules are labelled, and the web side of the event-name prefixes and the near-miss list are estimates.
+- **Day 9 — Email subject line preview.** Type a sender name, subject line and preheader and see them in
+  neutral mocks of four inboxes: Gmail on a phone, Apple Mail on an iPhone, Outlook on desktop and Gmail on
+  desktop, in light or dark mode. Each is cut by rendered pixel width in that inbox's font, mid-word with the
+  "…" marked, and says in plain English which words are hidden ("your subject stops at …, so “40% off” is
+  hidden"). Coral flags a key offer or number after the cut, an empty preheader (the inbox shows the email's
+  first line instead) and a preheader that repeats the subject. Amber flags other cut text, a short preheader,
+  ALL CAPS, piled-up `!!!`, 3+ emoji and spam trigger words (labelled a guide, not a rule). A headline verdict
+  and Copy problem list. Nothing is uploaded. Every width is a labelled estimate for a named screen size,
+  sourced from each platform's type scale.
 - **The hub.** A brand column with a 10-segment progress bar, and a grid of all 10 days: shipped tools as cards with a screenshot, future days locked. A floating Made with Omniscio badge, the
   same one an Omniscio Share carries, and a link preview in the hub's own look that stays neutral for X.
 - **Phone-first.** Every page is checked at 390 px wide with no sideways scrolling.
