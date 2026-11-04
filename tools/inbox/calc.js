@@ -179,10 +179,11 @@
   }
 
   function repeatsSubject(subject, preheader) {
-    const s = words(subject).join(' ');
+    const subjectWords = words(subject);
+    const s = subjectWords.join(' ');
     const p = words(preheader);
     if (!s || !p.length) return false;
-    const inSubject = new Set(words(subject));
+    const inSubject = new Set(subjectWords);
     const shared = p.filter((w) => inSubject.has(w)).length;
     return p.join(' ').startsWith(s) || s.startsWith(p.join(' ')) || (p.length >= REPEAT_MIN_WORDS && shared / p.length >= REPEAT_SHARE);
   }
