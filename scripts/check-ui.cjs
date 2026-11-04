@@ -522,7 +522,59 @@ async function checkGa4(page) {
     || await checkGa4Fix(page) || await checkGa4Edits(page);
 }
 
-const TOOL_CHECKS = { roas: checkRoas, utm: checkUtm, serp: checkSerp, rsa: checkRsa, feed: checkFeed, listing: checkListing, safezone: checkSafezone, ga4: checkGa4 };
+// --- Inbox: the example's verdict and cuts in real fonts, dark mode, the silent mistakes, a clean email ---
+
+const INBOX_EXAMPLE_HEADLINE = 'Your offer is cut off in 3 of 4 inboxes';
+const mockText = (page, client, part) => page.textContent(`.inbox[data-client="${client}"] .${part}`);
+
+async function checkInboxExample(page) {
+  if (await page.textContent('#headline') !== INBOX_EXAMPLE_HEADLINE) return `example headline: ${await page.textContent('#headline')}`;
+  if (await page.locator('#checks .check[data-level="fix"]').count() !== 3) return 'expected 3 coral inbox cards';
+  if (await page.locator('#checks .check[data-level="look"]').count() !== 1) return 'expected 1 amber inbox card (Gmail desktop)';
+  for (const client of ['gmailPhone', 'iphoneMail', 'outlookDesktop']) {
+    if (!(await mockText(page, client, 'subject')).endsWith('…')) return `${client} mock does not cut the subject`;
+  }
+  if ((await mockText(page, 'gmailDesktop', 'subject')).endsWith('…')) return 'Gmail desktop mock cut a subject that fits';
+  if (!/so “40% off” is hidden/.test(await page.textContent('#checks'))) return 'the hidden offer is not named';
+  const font = await page.evaluate(() => getComputedStyle(document.querySelector('.inbox[data-client="iphoneMail"] .subject')).fontSize);
+  if (font !== '15px') return `Apple Mail subject is drawn at ${font}, not its 15px`;
+  if (await page.locator('#sources li').count() !== 4) return 'Where the numbers come from does not list all 4 inboxes';
+  const swipe = await page.evaluate(() => { const w = document.querySelector('.inbox[data-client="gmailDesktop"] .frame-wrap'); return w.scrollWidth > w.clientWidth; });
+  if (swipe !== (page.viewportSize().width < 720)) return `Gmail desktop mock swipes: ${swipe}`;
+  return null;
+}
+
+async function checkInboxDark(page) {
+  const background = () => page.evaluate(() => getComputedStyle(document.querySelector('.inbox[data-client="gmailPhone"] .mock')).backgroundColor);
+  const light = await background();
+  await page.focus('#dark');
+  await page.keyboard.press('Space');
+  if (await page.getAttribute('#dark', 'aria-checked') !== 'true' || await page.getAttribute('#previews', 'data-theme') !== 'dark') return 'Dark mode switch did not turn on from the keyboard';
+  return await background() !== light ? null : 'dark mode did not restyle the mocks';
+}
+
+async function checkInboxEdits(page) {
+  await page.fill('#preheader', '');
+  if (!/View this email in your browser/.test(await mockText(page, 'gmailPhone', 'soft'))) return 'empty preheader did not show the first line of the email';
+  if (!/No preheader/.test(await page.textContent('#checks'))) return 'empty preheader was not flagged';
+  await page.fill('#preheader', 'Final hours of our Winter Sale');
+  if (!/repeats the subject/.test(await page.textContent('#checks'))) return 'a preheader repeating the subject was not flagged';
+  await page.fill('#subject', 'Winter Sale: 40% off');
+  await page.fill('#preheader', 'Jackets and boots, ends tonight');
+  if (await page.textContent('#headline') !== 'Fits every inbox in full') return `clean email: ${await page.textContent('#headline')}`;
+  if (await page.isHidden('#clear') || !await page.isDisabled('#copy')) return 'clean email did not show all clear with Copy off';
+  if (await page.textContent('#count-subject') !== '20 characters') return `subject counter: ${await page.textContent('#count-subject')}`;
+  const scroll = await sidewaysScroll(page);
+  return scroll > 0 ? `edited page scrolls sideways by ${scroll}px` : null;
+}
+
+async function checkInbox(page) {
+  return await checkInboxExample(page)
+    || await checkProblemListCopy(page, /^Your offer is cut off in 3 of 4 inboxes\n\nGmail on a phone \(to fix\): Your subject stops at “Final hours of our Winter Sale/)
+    || await checkInboxDark(page) || await checkInboxEdits(page);
+}
+
+const TOOL_CHECKS = { roas: checkRoas, utm: checkUtm, serp: checkSerp, rsa: checkRsa, feed: checkFeed, listing: checkListing, safezone: checkSafezone, ga4: checkGa4, inbox: checkInbox };
 
 (async () => {
   const server = serve().listen(0);

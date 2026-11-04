@@ -94,8 +94,7 @@
   .inbox { min-width: 0; }
   .inbox-head { display: flex; justify-content: space-between; align-items: baseline; gap: 4px var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2); }
   .inbox-head b { font-size: .95rem; }
-  .frame-wrap { overflow: hidden; border-radius: 22px; }
-  .frame { transform-origin: top left; }
+  .frame-wrap { overflow-x: auto; overflow-y: hidden; border-radius: 22px; -webkit-overflow-scrolling: touch; }
   .lost { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: grid; gap: 6px; font-size: .86rem; line-height: 1.4; color: var(--muted); }
   .lost li { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: start; overflow-wrap: anywhere; }
   .lost .dot { margin-top: 6px; }
@@ -108,8 +107,8 @@
   .previews[data-theme="dark"] .mock { --bg: #1f1f1f; --fg: #e8e8e8; --soft: #a8abb0; --rule: #333; --skel: #2c2d30; --chip: #2c2d30; --accent: #8ab4f8; }
   .mock .t { white-space: nowrap; overflow: hidden; }
   .mock .soft { color: var(--soft); }
-  .mock .ell { color: #c5221f; background: rgba(255, 107, 94, .28); border-radius: 3px; box-shadow: 0 0 0 1px #ff6b5e; }
-  .previews[data-theme="dark"] .mock .ell { color: #ffb4a9; }
+  .mock .ell { color: #b3261e; text-decoration: underline 2px #ff6b5e; text-underline-offset: 3px; }
+  .previews[data-theme="dark"] .mock .ell { color: #ff8a80; }
   .mock .empty { opacity: .55; font-style: italic; }
   .mock .skel { height: 10px; border-radius: 5px; background: var(--skel); }
   .mock .av { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; flex: none; background: #7d5fb2; color: #fff; font: 600 18px/1 Arial, sans-serif; text-transform: uppercase; }
@@ -234,6 +233,7 @@
     const FIELDS = ['sender', 'subject', 'preheader'];
     const TIME = '9:41 AM';
     const SKELETON_ROWS = 2;
+    const MIN_ZOOM = 0.55;
     const MESSAGES = {
       copy: 'Copy problem list', copied: 'Copied ✓',
       manual: `Your browser blocked copying here. The text is selected: press ${COPY_KEY}.`,
@@ -467,14 +467,13 @@
       fitFrames();
     }
 
-    // Each mock keeps its real pixel width and shrinks as a picture to fit its card.
+    // Each mock keeps its real pixel width and zooms out to fit its card, but never below MIN_ZOOM:
+    // past that (Gmail desktop on a phone) it stays readable and swipes sideways inside its box.
     function fitFrames() {
       for (const wrap of document.querySelectorAll('.frame-wrap')) {
         const frame = wrap.firstElementChild;
-        frame.style.transform = '';
-        const scale = Math.min(1, wrap.clientWidth / frame.offsetWidth);
-        frame.style.transform = scale < 1 ? `scale(${scale})` : '';
-        wrap.style.height = `${frame.offsetHeight * scale}px`;
+        frame.style.zoom = '';
+        frame.style.zoom = String(Math.max(MIN_ZOOM, Math.min(1, wrap.clientWidth / frame.offsetWidth)));
       }
     }
 

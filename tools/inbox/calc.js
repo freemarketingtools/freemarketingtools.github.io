@@ -159,6 +159,8 @@
   }
 
   const issue = (code, level, text) => ({ code, level, text });
+  // "Hidden: “…”." without a second full stop when the hidden words already end a sentence.
+  const hiddenSentence = (hidden) => `Hidden: “${hidden}”${/[.!?]$/.test(hidden) ? '' : '.'}`;
 
   // The checks that differ per inbox: what this inbox's width hides.
   function clientIssues(c, offer, hasPreheader) {
@@ -166,11 +168,11 @@
     const stops = `Your subject stops at “${c.subject.visible}${ELLIPSIS}”`;
     if (c.subject.cut && offer && offer.index + offer.text.length > c.subject.cutIndex) {
       issues.push(issue('offerCut', 'fix', `${stops}, so “${offer.text}” is hidden.`));
-    } else if (c.subject.cut) issues.push(issue('subjectCut', 'look', `${stops}. Hidden: “${c.subject.hidden}”.`));
+    } else if (c.subject.cut) issues.push(issue('subjectCut', 'look', `${stops}. ${hiddenSentence(c.subject.hidden)}`));
     if (hasPreheader && c.preview.crowded) {
       issues.push(issue('previewCrowdedOut', 'look', 'The subject fills the whole line, so your preheader doesn’t show at all.'));
     } else if (hasPreheader && c.preview.cut) {
-      issues.push(issue('previewCut', 'look', `Your preheader stops at “${c.preview.visible}${ELLIPSIS}”. Hidden: “${c.preview.hidden}”.`));
+      issues.push(issue('previewCut', 'look', `Your preheader stops at “${c.preview.visible}${ELLIPSIS}”. ${hiddenSentence(c.preview.hidden)}`));
     }
     if (c.sender.cut) issues.push(issue('senderCut', 'look', `Your sender name stops at “${c.sender.visible}${ELLIPSIS}”.`));
     return issues;

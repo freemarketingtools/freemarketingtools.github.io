@@ -116,6 +116,12 @@ test('a hidden offer is explained in plain English, naming where the subject sto
   assert.equal(issue.level, 'fix');
 });
 
+test('hidden words that end a sentence are not followed by a second full stop', () => {
+  const texts = inboxPreview(EXAMPLE, sized).clients.flatMap((c) => c.issues.map((i) => i.text));
+  assert.ok(texts.some((t) => t.endsWith('returns.”')), 'the hidden end of the preheader is quoted as written');
+  for (const t of texts) assert.doesNotMatch(t, /[.!?]”\.$/, t);
+});
+
 test('an offer only partly cut still counts as hidden', () => {
   // Outlook's subject shows 27 bold 14px characters here; "40% off" starts at 25 and is cut inside.
   const result = preview({ subject: 'Last call for winter, so 40% off today' });
