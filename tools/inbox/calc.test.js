@@ -79,6 +79,13 @@ test('keyOffer finds the offer, preferring a discount over a plain number', () =
   assert.equal(keyOffer('Hello there'), null);
 });
 
+test('each inbox result keeps its own font and width settings, which the page draws the mock with', () => {
+  inboxPreview(EXAMPLE, sized).clients.forEach((c, n) => {
+    assert.equal(c.spec, CLIENTS[n]);
+    assert.match(c.spec.subject.font, /px /, `${c.id} subject font survives the fitting`);
+  });
+});
+
 test('every inbox is labelled with its screen size and its widths are estimates', () => {
   assert.deepEqual(CLIENTS.map((c) => c.id), ['gmailPhone', 'iphoneMail', 'outlookDesktop', 'gmailDesktop']);
   for (const c of CLIENTS) {
@@ -94,8 +101,9 @@ test('the example: the offer is cut on both phones and Outlook, whole on Gmail d
   assert.equal(result.verdict.level, 'fix');
   for (const id of ['gmailPhone', 'iphoneMail', 'outlookDesktop']) {
     assert.ok(codes(client(result, id).issues).includes('offerCut'), `${id} hides 40% off`);
-    assert.ok(client(result, id).preview.cut, `${id} preheader is cut`);
   }
+  for (const id of ['gmailPhone', 'outlookDesktop', 'gmailDesktop']) assert.ok(client(result, id).preview.cut, `${id} preheader is cut`);
+  assert.equal(client(result, 'iphoneMail').preview.cut, false, 'Apple Mail’s two preview lines hold it');
   const desk = client(result, 'gmailDesktop');
   assert.equal(desk.subject.cut, false);
   assert.ok(codes(desk.issues).includes('previewCut'));

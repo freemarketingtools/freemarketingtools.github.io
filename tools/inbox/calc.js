@@ -69,7 +69,7 @@
   const EXAMPLE = {
     sender: 'Northpeak Outfitters',
     subject: 'Final hours of our Winter Sale, so don’t wait any longer: 40% off every jacket',
-    preheader: 'Ends at midnight. Free shipping on orders over $50, and free returns for 60 days on every order.'
+    preheader: 'Ends at midnight. Free shipping over $50 and free 60-day returns.'
   };
 
   const segmenter = new Intl.Segmenter();
@@ -154,7 +154,8 @@
     const preview = spec.preview.shared ? sharedPreview(spec, subject, previewText, measure)
       : fitLines(previewText, spec.preview.font, spec.preview.width, spec.preview.lines, measure);
     preview.source = input.preheader ? 'preheader' : 'fallback';
-    return { ...spec, sender: fitLine(input.sender, spec.sender.font, spec.sender.width, measure), subject, preview };
+    const sender = fitLine(input.sender, spec.sender.font, spec.sender.width, measure);
+    return { id: spec.id, name: spec.name, screen: spec.screen, spec, sender, subject, preview };
   }
 
   const issue = (code, level, text) => ({ code, level, text });

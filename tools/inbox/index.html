@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Email subject line and preheader preview</title>
+<meta name="description" content="See exactly where Gmail, Apple Mail and Outlook cut your subject line and preheader, on phone and desktop, and which words get hidden, before you send.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../../shared/tokens.css">
+<style>
+  .tool { max-width: 1120px; margin: 0 auto; padding: var(--space-4) var(--space-3) var(--space-5); }
+  .top { margin-bottom: var(--space-3); }
+  .top h1 { font-size: clamp(2rem, 6vw, 3.1rem); line-height: 1.02; margin: var(--space-2) 0 var(--space-2); letter-spacing: -.035em; }
+  .top h1 span { color: var(--lime); }
+  .top p { margin: 0; max-width: 60ch; color: var(--muted); }
+
+  .layout { display: grid; gap: var(--space-3); grid-template-areas: "inputs" "hero"; }
+  .layout > * { min-width: 0; }
+  @media (min-width: 980px) {
+    .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); grid-template-areas: "inputs hero"; align-items: start; }
+  }
+
+  /* Buttons and copy */
+  .btn { min-height: var(--tap); padding: 0 20px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); background: var(--panel-2); color: var(--text); font: 650 .95rem var(--font); cursor: pointer; transition: border-color .15s ease; }
+  .btn:hover { border-color: var(--faint); }
+  .btn.primary { background: var(--lime); border-color: var(--lime); color: var(--lime-ink); }
+  .btn.primary:hover { filter: brightness(1.06); }
+  .btn:disabled { opacity: .4; cursor: default; filter: none; }
+  .btn[data-done="true"] { background: var(--panel-2); color: var(--lime); border-color: var(--lime); }
+  .actions { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+  .actions .btn.primary { flex: 1 1 180px; }
+  .status { color: var(--muted); font-size: .9rem; }
+  .status:empty { display: none; }
+  .manual { position: relative; width: 100%; margin-top: var(--space-2); padding: 10px 12px; font: 500 .85rem/1.5 var(--mono); color: var(--text); background: var(--ink); border: 1px solid var(--lime); border-radius: var(--radius-sm); resize: vertical; }
+
+  /* Inputs */
+  .inputs { grid-area: inputs; padding: var(--space-2) var(--space-3) var(--space-3); }
+  .field { display: grid; gap: 8px; padding: var(--space-2) 0; border-top: 1px solid var(--line); }
+  .field:first-of-type { border-top: 0; }
+  .field label { font-weight: 600; font-size: .95rem; display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; }
+  .field label small { font-weight: 400; color: var(--faint); font-size: .8rem; }
+  .field input, .field textarea {
+    width: 100%; min-height: var(--tap); padding: 0 14px;
+    font: 500 .98rem var(--font); color: var(--text);
+    background: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius-sm); transition: border-color .15s ease;
+  }
+  .field textarea { padding: 11px 14px; line-height: 1.5; resize: vertical; min-height: 92px; }
+  .field input:hover, .field textarea:hover { border-color: var(--faint); }
+  .field input:focus, .field textarea:focus { border-color: var(--lime); outline: none; box-shadow: 0 0 0 3px var(--lime-soft); }
+  .count { font: 600 .78rem var(--mono); color: var(--faint); font-variant-numeric: tabular-nums; }
+  .private { display: flex; align-items: center; gap: 8px; margin: var(--space-2) 0 0; color: var(--muted); font-size: .88rem; }
+  .private .dot { background: var(--lime); }
+
+  /* Result */
+  .hero { grid-area: hero; padding: var(--space-3); overflow: hidden; position: relative; }
+  .hero::before { content: ""; position: absolute; inset: -40% -20% auto auto; width: 320px; height: 320px; border-radius: 50%; background: radial-gradient(var(--lime-soft), transparent 70%); pointer-events: none; }
+  .hero[data-state="fix"]::before { background: radial-gradient(var(--coral-soft), transparent 70%); }
+  .hero[data-state="look"]::before { background: radial-gradient(var(--amber-soft), transparent 70%); }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); position: relative; }
+  .chip { font: 600 12px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; padding: 7px 10px; border-radius: 999px; color: var(--lime-ink); background: var(--lime); white-space: nowrap; }
+  .chip[data-state="fix"] { background: var(--coral); color: #1a0705; }
+  .chip[data-state="look"] { background: var(--amber); color: #1a1205; }
+  .headline { position: relative; margin: var(--space-3) 0 var(--space-1); font-size: clamp(2.1rem, 6vw, 3.1rem); font-weight: 750; line-height: 1.04; letter-spacing: -.035em; overflow-wrap: anywhere; }
+  .hero[data-state="ok"] .headline { color: var(--lime); }
+  .sub { position: relative; margin: 0; color: var(--muted); font-size: .95rem; }
+  .sub:empty { display: none; }
+  .checks { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-1); position: relative; }
+  .check { padding: 10px 12px; border-radius: var(--radius-sm); background: var(--panel-2); border: 1px solid var(--line); border-left: 3px solid var(--coral); font-size: .9rem; line-height: 1.4; }
+  .check[data-level="look"] { border-left-color: var(--amber); }
+  .check .where { display: block; margin-bottom: 6px; font: 600 11px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .whys { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .whys li { display: grid; grid-template-columns: auto 1fr; gap: var(--space-2); align-items: start; overflow-wrap: anywhere; }
+  .whys .dot { margin-top: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--coral); flex: none; display: inline-block; }
+  [data-level="look"] > .dot, .dot.look { background: var(--amber); }
+  .clear { display: flex; align-items: center; gap: 8px; color: var(--lime); font-size: .92rem; margin: var(--space-3) 0 0; position: relative; }
+  .clear .dot { background: var(--lime); }
+  .key { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); color: var(--faint); font-size: .82rem; margin: var(--space-3) 0; position: relative; }
+  .key span { display: inline-flex; align-items: center; gap: 6px; }
+
+  /* Previews */
+  .previews { margin-top: var(--space-3); padding: var(--space-3); }
+  .previews-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
+  .switch { display: inline-flex; align-items: center; gap: 10px; min-height: var(--tap); padding: 0 4px; border: 0; background: none; color: var(--muted); font: 600 .9rem var(--font); cursor: pointer; }
+  .switch .track { position: relative; width: 44px; height: 26px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line-strong); transition: background .15s ease; }
+  .switch .track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--muted); transition: transform .15s ease, background .15s ease; }
+  .switch[aria-checked="true"] .track { background: var(--lime); border-color: var(--lime); }
+  .switch[aria-checked="true"] .track::after { transform: translateX(18px); background: var(--lime-ink); }
+  .inboxes { display: grid; gap: var(--space-3); }
+  @media (min-width: 980px) {
+    .inboxes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .inbox[data-client="gmailDesktop"] { grid-column: 1 / -1; }
+  }
+  .inbox { min-width: 0; }
+  .inbox-head { display: flex; justify-content: space-between; align-items: baseline; gap: 4px var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2); }
+  .inbox-head b { font-size: .95rem; }
+  .frame-wrap { overflow: hidden; border-radius: 22px; }
+  .frame { transform-origin: top left; }
+  .lost { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: grid; gap: 6px; font-size: .86rem; line-height: 1.4; color: var(--muted); }
+  .lost li { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: start; overflow-wrap: anywhere; }
+  .lost .dot { margin-top: 6px; }
+  .lost s { color: var(--text); text-decoration-color: var(--coral); }
+  .lost .fine { color: var(--lime); }
+  .lost .fine .dot { background: var(--lime); }
+
+  /* The inbox mocks: neutral, light by default, dark with the switch. Fonts and widths are set from calc.js. */
+  .mock { --bg: #fff; --fg: #1f1f1f; --soft: #5f6368; --rule: #e6e6e6; --skel: #eceef1; --chip: #f1f3f4; --accent: #1a73e8; background: var(--bg); color: var(--fg); }
+  .previews[data-theme="dark"] .mock { --bg: #1f1f1f; --fg: #e8e8e8; --soft: #a8abb0; --rule: #333; --skel: #2c2d30; --chip: #2c2d30; --accent: #8ab4f8; }
+  .mock .t { white-space: nowrap; overflow: hidden; }
+  .mock .soft { color: var(--soft); }
+  .mock .ell { color: #c5221f; background: rgba(255, 107, 94, .28); border-radius: 3px; box-shadow: 0 0 0 1px #ff6b5e; }
+  .previews[data-theme="dark"] .mock .ell { color: #ffb4a9; }
+  .mock .empty { opacity: .55; font-style: italic; }
+  .mock .skel { height: 10px; border-radius: 5px; background: var(--skel); }
+  .mock .av { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; flex: none; background: #7d5fb2; color: #fff; font: 600 18px/1 Arial, sans-serif; text-transform: uppercase; }
+  .mock .skel-row { display: flex; gap: 14px; align-items: center; padding: 14px 16px; opacity: .8; }
+  .mock .skel-row .av { background: var(--skel); }
+  .mock .skel-lines { flex: 1; display: grid; gap: 8px; }
+
+  .phone { width: 393px; border-radius: 22px; overflow: hidden; }
+  .bar { display: flex; align-items: center; gap: 12px; margin: 14px 16px 6px; height: 48px; padding: 0 18px; border-radius: 999px; background: var(--chip); color: var(--soft); font: 400 16px Arial, sans-serif; }
+  .bar::before { content: ""; width: 18px; height: 2px; background: var(--soft); box-shadow: 0 -6px 0 var(--soft), 0 6px 0 var(--soft); }
+  .section { padding: 10px 16px 4px; color: var(--soft); font: 500 13px Arial, sans-serif; }
+  .g-row { display: flex; gap: 16px; padding: 10px 16px 12px; }
+  .g-text { display: grid; gap: 2px; }
+  .line { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .time { font: 700 12px Arial, sans-serif; white-space: nowrap; }
+  .star { width: 16px; height: 16px; border: 1.5px solid var(--soft); border-radius: 3px; transform: rotate(45deg) scale(.7); flex: none; }
+
+  .ios { --accent: #0a7aff; }
+  .previews[data-theme="dark"] .ios { --bg: #000; --fg: #fff; --soft: #98989f; --rule: #2c2c2e; --skel: #1c1c1e; --accent: #0a84ff; }
+  .ios-title { padding: 10px 16px 6px; font: 700 34px/1.2 -apple-system, "Helvetica Neue", Arial, sans-serif; }
+  .ios-row { position: relative; padding: 10px 16px 11px 36px; border-bottom: 1px solid var(--rule); display: grid; gap: 1px; }
+  .ios-row::before { content: ""; position: absolute; left: 14px; top: 17px; width: 11px; height: 11px; border-radius: 50%; background: var(--accent); }
+  .ios .time { font: 400 15px -apple-system, "Helvetica Neue", Arial, sans-serif; color: var(--soft); }
+  .ios .time::after { content: " ›"; }
+
+  .outlook { width: 360px; border-radius: 14px; overflow: hidden; }
+  .outlook { --accent: #2b65c8; }
+  .previews[data-theme="dark"] .outlook { --bg: #292929; --fg: #fff; --soft: #b3b3b3; --rule: #3d3d3d; --skel: #383838; --accent: #7aa7f0; }
+  .tabs { display: flex; gap: 22px; padding: 14px 16px 0; border-bottom: 1px solid var(--rule); font: 600 14px "Segoe UI", Arial, sans-serif; }
+  .tabs span { padding-bottom: 10px; color: var(--soft); }
+  .tabs span:first-child { color: var(--fg); box-shadow: inset 0 -2px 0 var(--accent); }
+  .o-row { display: flex; gap: 12px; padding: 10px 12px 12px 12px; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--bg)); }
+  .o-row .av { width: 32px; height: 32px; font-size: 14px; background: #2f7d6d; }
+  .o-text { display: grid; gap: 1px; }
+  .o-row .subject { color: var(--accent); }
+  .outlook .time { font: 400 12px "Segoe UI", Arial, sans-serif; color: var(--soft); }
+
+  .desk { width: 1106px; border-radius: 14px; overflow: hidden; }
+  .desk-tools { display: flex; gap: 18px; align-items: center; height: 48px; padding: 0 20px; border-bottom: 1px solid var(--rule); }
+  .box { width: 16px; height: 16px; border: 2px solid var(--soft); border-radius: 3px; flex: none; }
+  .d-row { display: flex; align-items: center; height: 44px; padding: 0 16px 0 20px; gap: 0; border-bottom: 1px solid var(--rule); background: var(--bg); box-shadow: inset 0 0 0 9999px color-mix(in srgb, var(--fg) 2%, transparent); }
+  .d-icons { display: flex; gap: 14px; width: 76px; flex: none; }
+  .d-sender { margin-right: 16px; }
+  .d-line .sep, .d-line .snippet { color: var(--soft); }
+  .d-row .time { margin-left: auto; padding-left: 16px; }
+  .d-skel { display: flex; align-items: center; height: 44px; padding: 0 16px 0 96px; gap: 16px; border-bottom: 1px solid var(--rule); }
+
+  .notes { color: var(--muted); font-size: .88rem; line-height: 1.6; padding: var(--space-3); margin-top: var(--space-3); }
+  .notes p, .notes ul { margin: 0 0 var(--space-2); }
+  .notes ul { padding-left: 1.2em; display: grid; gap: 4px; }
+  .notes p:last-child { margin-bottom: 0; }
+  .notes b { color: var(--text); }
+
+  footer { margin-top: var(--space-4); }
+  [hidden] { display: none !important; }
+  @media (max-width: 520px) {
+    .hero, .inputs, .previews, .notes { padding-left: var(--space-2); padding-right: var(--space-2); }
+  }
+</style>
+</head>
+<body>
+<main class="tool">
+  <header class="top">
+    <span class="label">Free tool · Day 9 of 10</span>
+    <h1>Email subject line <span>preview</span></h1>
+    <p>See exactly where Gmail, Apple Mail and Outlook cut your subject line and preheader, on phone and desktop, and which words get hidden, before you send.</p>
+  </header>
+
+  <div class="layout">
+    <form class="inputs panel" id="inputs" novalidate autocomplete="off" aria-label="Your email">
+      <div class="field"><label for="sender">Sender name <span class="count" id="count-sender"></span></label><input id="sender" spellcheck="false"></div>
+      <div class="field"><label for="subject">Subject line <span class="count" id="count-subject"></span></label><input id="subject"></div>
+      <div class="field"><label for="preheader">Preheader <small>The preview text after the subject</small> <span class="count" id="count-preheader"></span></label><textarea id="preheader" rows="3"></textarea></div>
+      <p class="private"><span class="dot"></span>Checked in your browser. Nothing is uploaded.</p>
+    </form>
+
+    <section class="hero panel" id="hero" data-state="ok" aria-label="Result">
+      <div class="row">
+        <span class="label">Result</span>
+        <span class="chip" id="chip"></span>
+      </div>
+      <p class="headline" id="headline" aria-live="polite"></p>
+      <p class="sub" id="sub"></p>
+      <ul class="checks" id="checks" aria-label="Checks per inbox"></ul>
+      <p class="clear" id="clear" hidden><span class="dot"></span>Your subject and preheader show in full in all four inboxes.</p>
+      <p class="key"><span><span class="dot"></span>Key words cut, or the preheader is broken</span><span><span class="dot look"></span>Worth a look</span></p>
+      <div class="actions">
+        <button type="button" class="btn primary" id="copy" title="Copy problem list (Ctrl+Enter)">Copy problem list</button>
+        <span class="status" id="copy-status" aria-live="polite"></span>
+      </div>
+      <textarea class="manual" id="copy-manual" rows="5" readonly hidden aria-label="Problem list, selected for copying"></textarea>
+    </section>
+  </div>
+
+  <section class="previews panel" id="previews" data-theme="light" aria-label="Inbox previews">
+    <div class="previews-head">
+      <span class="label">How it looks in the inbox · mock-ups, widths are estimates</span>
+      <button type="button" class="switch" id="dark" role="switch" aria-checked="false"><span class="track"></span>Dark mode</button>
+    </div>
+    <div class="inboxes" id="inboxes"></div>
+  </section>
+
+  <section class="notes panel">
+    <p><b>Where the numbers come from.</b> No inbox publishes how much it shows, and it changes with your device, window size, density setting and app updates, so every width here is an estimate for the screen named. Each one is the space the inbox row gives the text, worked out from the platform’s own type scale and the row’s layout:</p>
+    <ul id="sources"></ul>
+    <p>Fonts and sizes: Gmail uses Google Sans and Roboto at <a href="https://m3.material.io/styles/typography/type-scale-tokens" target="_blank" rel="noopener">Material 3’s type scale</a>, and its <a href="https://support.google.com/mail/answer/9259769" target="_blank" rel="noopener">density setting</a> changes the rows. Apple Mail uses the system font at the <a href="https://developer.apple.com/design/human-interface-guidelines/typography" target="_blank" rel="noopener">iOS text styles</a> and shows <a href="https://support.apple.com/guide/iphone/iph461684497/ios" target="_blank" rel="noopener">2 preview lines by default</a>. Outlook uses Segoe UI at the <a href="https://fluent2.microsoft.design/typography" target="_blank" rel="noopener">Fluent 2 sizes</a>; its preview length is becoming a setting, and 1 line is assumed. Published character counts (Gmail about 90, iPhone about 81 to 90, Outlook anywhere from 35 to 255, <a href="https://newsletter2go-en.helpscoutdocs.com/article/1721-how-to-use-preview-text" target="_blank" rel="noopener">for example</a>) vary that much because wide letters take more room, which is why this tool measures pixels.</p>
+    <p><b>Measured on your device.</b> The text is measured and drawn in each inbox’s font, or the closest one your device has, so a Mac and a Windows PC can differ by a word or two. Inboxes cut mid-word and add “…” where they run out of room.</p>
+    <p><b>The spam checks are a guide, not a rule.</b> Filters judge your sending history and how people react far more than any one word. ALL CAPS, piled-up “!!!” and lots of emoji mostly put readers off. When the preheader is empty, the inbox shows the first text in your email instead, which is often a “View in browser” link. When it is short, the inbox fills the rest of the line with the first words of the email.</p>
+  </section>
+
+  <footer>
+    <a class="made" href="https://omniscio.com" target="_blank" rel="noopener"><img src="../../docs/orb.png" alt="" width="24" height="24"><span>Built with <b>Omniscio</b></span></a>
+  </footer>
+</main>
+<script src="calc.js"></script>
+<script>
+  (function () {
+    'use strict';
+    const { CLIENTS, ELLIPSIS, SEPARATOR, EXAMPLE, EVERY_INBOX, LEVEL_NAMES, plural, inboxPreview, problemList, count } = window.InboxCalc;
+    const COPIED_MS = 1600;
+    const COPY_KEY = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘C' : 'Ctrl+C';
+    const FIELDS = ['sender', 'subject', 'preheader'];
+    const TIME = '9:41 AM';
+    const SKELETON_ROWS = 2;
+    const MESSAGES = {
+      copy: 'Copy problem list', copied: 'Copied ✓',
+      manual: `Your browser blocked copying here. The text is selected: press ${COPY_KEY}.`,
+      chips: { fix: (n) => `${n} to fix`, look: (n) => `${n} worth a look`, ok: 'All clear' },
+      chars: (n) => plural(n, 'character', 'characters'),
+      noSubject: '(no subject)', noSender: 'hello@yourstore.com',
+      estimate: (screen) => `${screen} · estimate`,
+      lost: { subject: 'Subject', preview: 'Preheader', sender: 'Sender', fallback: 'Stand-in, no preheader' },
+      nothingLost: 'Nothing hidden here.',
+      crowded: 'none of it shows',
+      source: (c, sizes) => `${c.name}: ${sizes}. Assumes ${c.screen.charAt(0).toLowerCase()}${c.screen.slice(1)}.`,
+      sizes: (c) => [`sender ${size(c.sender)} in about ${c.sender.width} px`, `subject ${size(c.subject)} in about ${c.subject.width} px`,
+        c.preview.shared ? 'the preheader shares the subject’s line' : `preheader ${size(c.preview)} in about ${c.preview.width} px, ${plural(c.preview.lines, 'line', 'lines')}`].join(', ')
+    };
+    const $ = (id) => document.getElementById(id);
+    const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+    const value = (id) => $(id).value;
+    const ctx = document.createElement('canvas').getContext('2d');
+    const measure = (text, font) => { ctx.font = font; return ctx.measureText(text).width; };
+    let result;
+
+    function size(spec) {
+      const [, weight, px] = /^(\d+) (\d+)px/.exec(spec.font);
+      return `${px}px${Number(weight) >= 600 ? ' bold' : ''}`;
+    }
+
+    // --- Copy: Clipboard API, then the older copy command, then select the text for the person ---
+    async function copyText(text, manualBox) {
+      manualBox.hidden = true;
+      try { await navigator.clipboard.writeText(text); return true; } catch { /* blocked: try the next way */ }
+      const scratch = el('textarea');
+      scratch.value = text;
+      scratch.setAttribute('readonly', '');
+      scratch.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+      const focused = document.activeElement;
+      document.body.append(scratch);
+      scratch.focus();
+      scratch.select();
+      let copied = false;
+      try { copied = document.execCommand('copy'); } catch { /* unsupported: leave false */ }
+      scratch.remove();
+      if (focused) focused.focus();
+      if (copied) return true;
+      manualBox.value = text;
+      manualBox.hidden = false;
+      manualBox.focus();
+      manualBox.select();
+      return false;
+    }
+
+    async function copyProblems() {
+      const button = $('copy');
+      if (button.disabled) return;
+      const copied = await copyText(problemList(result), $('copy-manual'));
+      $('copy-status').textContent = copied ? '' : MESSAGES.manual;
+      if (!copied) return;
+      button.textContent = MESSAGES.copied;
+      button.dataset.done = 'true';
+      setTimeout(() => { button.textContent = MESSAGES.copy; button.dataset.done = 'false'; }, COPIED_MS);
+    }
+
+    // --- Result: the verdict and one card per inbox with something to say ---
+    const worst = (issues) => (issues.some((i) => i.level === 'fix') ? 'fix' : 'look');
+
+    function card(where, issues) {
+      const li = el('li', 'check');
+      li.dataset.level = worst(issues);
+      const list = el('ul', 'whys');
+      list.append(...issues.map((i) => {
+        const why = el('li');
+        why.dataset.level = i.level;
+        why.append(el('span', 'dot'), el('span', '', i.text));
+        return why;
+      }));
+      li.append(el('span', 'where', where), list);
+      return li;
+    }
+
+    function renderVerdict() {
+      const v = result.verdict;
+      $('hero').dataset.state = v.level;
+      $('chip').dataset.state = v.level;
+      $('chip').textContent = v.level === 'ok' ? MESSAGES.chips.ok : v.fix ? MESSAGES.chips.fix(v.fix) : MESSAGES.chips.look(v.look);
+      $('headline').textContent = v.headline;
+      $('sub').textContent = v.sub;
+      const cards = result.clients.filter((c) => c.issues.length).map((c) => card(c.name, c.issues));
+      if (result.issues.length) cards.push(card(EVERY_INBOX, result.issues));
+      $('checks').replaceChildren(...cards);
+      $('clear').hidden = v.level !== 'ok';
+      $('copy').disabled = v.level === 'ok';
+    }
+
+    // --- The mocks: each text box gets the inbox's font and width, and the "…" is marked ---
+    function textNodes(text) {
+      if (!text.endsWith(ELLIPSIS)) return [document.createTextNode(text)];
+      return [document.createTextNode(text.slice(0, -ELLIPSIS.length)), el('span', 'ell', ELLIPSIS)];
+    }
+
+    function styled(tag, cls, spec, width) {
+      const node = el(tag, cls);
+      node.style.font = spec.font;
+      node.style.lineHeight = '1.4';
+      if (width) node.style.width = `${width}px`;
+      return node;
+    }
+
+    function textBox(fit, spec, cls, placeholder) {
+      const box = styled('div', `t ${cls}`, spec, spec.width);
+      if (!fit.text) { box.classList.add('empty'); box.textContent = placeholder; return box; }
+      box.append(...textNodes(fit.text));
+      return box;
+    }
+
+    function previewBox(fit, spec) {
+      const box = el('div', 'soft');
+      box.append(...fit.lines.map((line) => { const l = styled('div', 't', spec, spec.width); l.append(...textNodes(line)); return l; }));
+      return box;
+    }
+
+    const senderBox = (c) => textBox(c.sender, c.spec.sender, 'sender', MESSAGES.noSender);
+    const subjectBox = (c) => textBox(c.subject, c.spec.subject, 'subject', MESSAGES.noSubject);
+    const avatar = (c) => el('span', 'av', (c.sender.text || '?').charAt(0));
+    const lineWith = (left, right) => { const l = el('div', 'line'); l.append(left, right); return l; };
+
+    function skeleton(n) {
+      return Array.from({ length: n }, () => {
+        const row = el('div', 'skel-row');
+        const lines = el('div', 'skel-lines');
+        lines.append(...bars(['60%', '85%', '70%']));
+        row.append(el('span', 'av'), lines);
+        return row;
+      });
+    }
+
+    function gmailPhone(c) {
+      const frame = el('div', 'mock phone frame');
+      const row = el('div', 'g-row');
+      const text = el('div', 'g-text');
+      const sender = el('div', 'line');
+      sender.append(senderBox(c), el('span', 'time', TIME));
+      text.append(sender, subjectBox(c), lineWith(previewBox(c.preview, c.spec.preview), el('span', 'star')));
+      row.append(avatar(c), text);
+      frame.append(el('div', 'bar', 'Search in mail'), el('div', 'section', 'Primary'), row, ...skeleton(SKELETON_ROWS));
+      return frame;
+    }
+
+    function iphoneMail(c) {
+      const frame = el('div', 'mock ios phone frame');
+      const row = el('div', 'ios-row');
+      row.append(lineWith(senderBox(c), el('span', 'time', '9:41')), subjectBox(c), previewBox(c.preview, c.spec.preview));
+      frame.append(el('div', 'ios-title', 'Inbox'), row, ...skeleton(SKELETON_ROWS));
+      return frame;
+    }
+
+    function outlookDesktop(c) {
+      const frame = el('div', 'mock outlook frame');
+      const tabs = el('div', 'tabs');
+      tabs.append(el('span', '', 'Focused'), el('span', '', 'Other'));
+      const row = el('div', 'o-row');
+      const text = el('div', 'o-text');
+      text.append(senderBox(c), lineWith(subjectBox(c), el('span', 'time', '9:41')), previewBox(c.preview, c.spec.preview));
+      const av = avatar(c);
+      row.append(av, text);
+      frame.append(tabs, row, ...skeleton(SKELETON_ROWS));
+      return frame;
+    }
+
+    const bars = (widths) => widths.map((w) => { const s = el('div', 'skel'); s.style.width = w; return s; });
+
+    // Gmail desktop: subject, " - " and preheader share one line, each in its own font.
+    function sharedLine(c) {
+      const line = styled('div', 't d-line', c.spec.subject, c.spec.subject.width);
+      if (!c.subject.text) { line.append(el('span', 'empty', MESSAGES.noSubject)); return line; }
+      const subject = styled('span', 'subject', c.spec.subject);
+      subject.append(...textNodes(c.subject.text));
+      line.append(subject);
+      if (!c.preview.text) return line;
+      const sep = styled('span', 'sep', c.spec.preview);
+      sep.textContent = SEPARATOR;
+      const snippet = styled('span', 'snippet', c.spec.preview);
+      snippet.append(...textNodes(c.preview.text));
+      line.append(sep, snippet);
+      return line;
+    }
+
+    function gmailDesktop(c) {
+      const frame = el('div', 'mock desk frame');
+      const tools = el('div', 'desk-tools');
+      tools.append(el('span', 'box'), ...bars(['40px', '24px', '24px']));
+      const icons = el('div', 'd-icons');
+      icons.append(el('span', 'box'), el('span', 'star'));
+      const row = el('div', 'd-row');
+      row.append(icons, textBox(c.sender, c.spec.sender, 'd-sender', MESSAGES.noSender), sharedLine(c), el('span', 'time', TIME));
+      const skel = Array.from({ length: SKELETON_ROWS }, () => { const r = el('div', 'd-skel'); r.append(...bars(['140px', '520px'])); return r; });
+      frame.append(tools, row, ...skel);
+      return frame;
+    }
+
+    const MOCKS = { gmailPhone, iphoneMail, outlookDesktop, gmailDesktop };
+
+    // What this inbox hides, in plain words, under its mock.
+    function lostItem(c, part, fit) {
+      const li = el('li');
+      const label = part === 'preview' && fit.source === 'fallback' ? MESSAGES.lost.fallback : MESSAGES.lost[part];
+      const text = el('span', '', `${label} hides `);
+      text.append(el('s', '', fit.hidden), fit.crowded ? ` (${MESSAGES.crowded})` : '');
+      const offer = part === 'subject' && c.issues.some((i) => i.code === 'offerCut');
+      li.append(el('span', offer ? 'dot' : 'dot look'), text);
+      return li;
+    }
+
+    function lostList(c) {
+      const list = el('ul', 'lost');
+      const parts = [['subject', c.subject], ['preview', c.preview], ['sender', c.sender]].filter(([, fit]) => fit.cut && fit.hidden);
+      if (parts.length) list.append(...parts.map(([part, fit]) => lostItem(c, part, fit)));
+      else { const li = el('li', 'fine'); li.append(el('span', 'dot'), el('span', '', MESSAGES.nothingLost)); list.append(li); }
+      return list;
+    }
+
+    function renderInboxes() {
+      $('inboxes').replaceChildren(...result.clients.map((c) => {
+        const card = el('article', 'inbox');
+        card.dataset.client = c.id;
+        const head = el('div', 'inbox-head');
+        head.append(el('b', '', c.name), el('span', 'label', MESSAGES.estimate(c.screen)));
+        const wrap = el('div', 'frame-wrap');
+        wrap.append(MOCKS[c.id](c));
+        card.append(head, wrap, lostList(c));
+        return card;
+      }));
+      fitFrames();
+    }
+
+    // Each mock keeps its real pixel width and shrinks as a picture to fit its card.
+    function fitFrames() {
+      for (const wrap of document.querySelectorAll('.frame-wrap')) {
+        const frame = wrap.firstElementChild;
+        frame.style.transform = '';
+        const scale = Math.min(1, wrap.clientWidth / frame.offsetWidth);
+        frame.style.transform = scale < 1 ? `scale(${scale})` : '';
+        wrap.style.height = `${frame.offsetHeight * scale}px`;
+      }
+    }
+
+    function renderCounters() {
+      for (const id of FIELDS) $(`count-${id}`).textContent = MESSAGES.chars(count(value(id)));
+    }
+
+    function update() {
+      result = inboxPreview({ sender: value('sender'), subject: value('subject'), preheader: value('preheader') }, measure);
+      renderCounters();
+      renderVerdict();
+      renderInboxes();
+      $('copy-manual').hidden = true;
+      $('copy-status').textContent = '';
+    }
+
+    $('sources').replaceChildren(...CLIENTS.map((c) => el('li', '', MESSAGES.source(c, MESSAGES.sizes(c)))));
+    for (const id of FIELDS) $(id).value = EXAMPLE[id];
+    $('inputs').addEventListener('input', update);
+    $('inputs').addEventListener('submit', (e) => e.preventDefault());
+    $('dark').addEventListener('click', () => {
+      const on = $('dark').getAttribute('aria-checked') !== 'true';
+      $('dark').setAttribute('aria-checked', String(on));
+      $('previews').dataset.theme = on ? 'dark' : 'light';
+    });
+    $('copy').addEventListener('click', copyProblems);
+    document.addEventListener('keydown', (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key !== 'Enter') return;
+      e.preventDefault();
+      copyProblems();
+    });
+    window.addEventListener('resize', fitFrames);
+    update();
+  })();
+</script>
+</body>
+</html>
