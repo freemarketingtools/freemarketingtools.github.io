@@ -47,5 +47,12 @@
     "blurb": "Drop in a vertical ad and see it on TikTok, Reels, Stories, Facebook Reels and Shorts at once, with the parts each app's buttons and captions cover. It checks those spots for text and logos for you.",
     "url": "https://shares.omniscio.com/s/2048753784d4b1a676ab25c1d54218ae7e4040bdf4baa03b1be5a2329aeb713c",
     "shot": "shots/safezone.png"
+  },
+  {
+    "day": 8,
+    "name": "GA4 event name checker",
+    "blurb": "Paste your GA4 event list and see, before you ship the tracking, which events GA4 will reject, silently drop or split into separate reports. Fix every name to snake_case and Google's recommended events in one click.",
+    "url": "https://shares.omniscio.com/s/a6c81c4f60af896fa22e2116dfc00be5dcf933e3c369d6a5be8307dc53f8fa48",
+    "shot": "shots/ga4.png"
   }
 ]
