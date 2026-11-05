@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A/B test calculator in plain English</title>
+<meta name="description" content="Is your A/B test a winner yet? One plain sentence: who is ahead, how sure you can be, and how many more days it needs.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../../shared/tokens.css">
+<style>
+  .tool { max-width: 1080px; margin: 0 auto; padding: var(--space-4) var(--space-3) var(--space-5); }
+  .top { margin-bottom: var(--space-3); }
+  .top h1 { font-size: clamp(2rem, 6vw, 3.1rem); line-height: 1.02; margin: var(--space-2) 0 var(--space-2); letter-spacing: -.035em; }
+  .top h1 span { color: var(--lime); }
+  .top p { margin: 0; max-width: 52ch; color: var(--muted); }
+  .private { display: flex; align-items: center; gap: 8px; margin: var(--space-2) 0 0; color: var(--muted); font-size: .88rem; }
+  .modes { display: inline-flex; gap: 4px; padding: 4px; margin-bottom: var(--space-3); border-radius: 999px; background: var(--panel); border: 1px solid var(--line); }
+  .modes button { min-height: 38px; padding: 0 18px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: 600 .9rem var(--font); cursor: pointer; }
+  .modes button[aria-selected="true"] { background: var(--lime); color: var(--lime-ink); }
+  .layout { display: grid; gap: var(--space-3); grid-template-areas: "hero" "inputs" "math"; }
+  @media (min-width: 900px) {
+    .layout { grid-template-columns: .9fr 1.1fr; grid-template-areas: "inputs hero" "math hero"; align-items: start; }
+    .hero { position: sticky; top: var(--space-3); }
+  }
+
+  /* Result */
+  .hero { grid-area: hero; padding: var(--space-3); overflow: hidden; position: relative; }
+  .hero::before { content: ""; position: absolute; inset: -40% -20% auto auto; width: 320px; height: 320px; border-radius: 50%; background: radial-gradient(var(--lime-soft), transparent 70%); pointer-events: none; }
+  .hero[data-state="fix"]::before { background: radial-gradient(var(--coral-soft), transparent 70%); }
+  .hero[data-state="look"]::before { background: radial-gradient(var(--amber-soft), transparent 70%); }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); position: relative; }
+  .chip { font: 600 12px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; padding: 7px 10px; border-radius: 999px; color: var(--lime-ink); background: var(--lime); white-space: nowrap; }
+  .hero[data-state="fix"] .chip { background: var(--coral); color: #1a0705; }
+  .hero[data-state="look"] .chip { background: var(--amber); color: #1a1205; }
+  .sentence { position: relative; margin: var(--space-3) 0 var(--space-3); font-size: clamp(1.45rem, 3.6vw, 1.95rem); font-weight: 720; line-height: 1.22; letter-spacing: -.02em; }
+  .hero[data-state="ok"] .sentence { color: var(--lime); }
+  .traffic { position: relative; padding: var(--space-2); border-radius: var(--radius-sm); background: var(--panel-2); border: 1px solid var(--line); }
+  .traffic .row label { font-weight: 600; font-size: .92rem; }
+  .traffic output { font: 600 .9rem var(--mono); color: var(--lime); }
+  input[type="range"] { width: 100%; margin: var(--space-2) 0 2px; accent-color: var(--lime); min-height: 28px; cursor: pointer; }
+  .traffic small { color: var(--faint); font-size: .78rem; }
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); margin-top: var(--space-3); position: relative; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: var(--space-2); min-width: 0; }
+  .tile b { display: block; font-size: 1.3rem; font-weight: 750; margin-top: 4px; overflow-wrap: anywhere; }
+  .tile small { display: block; color: var(--faint); font-size: .76rem; margin-top: 2px; }
+  .checks { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-1); position: relative; }
+  .check { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--panel-2); border: 1px solid var(--line); border-left: 3px solid var(--coral); font-size: .9rem; line-height: 1.45; }
+  .check[data-level="look"] { border-left-color: var(--amber); }
+  .check .where { display: block; margin-bottom: 4px; font: 600 11px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .dot { width: 8px; height: 8px; margin-top: 6px; border-radius: 50%; background: var(--coral); flex: none; display: inline-block; }
+  [data-level="look"] > .dot { background: var(--amber); }
+  .clear { display: flex; align-items: center; gap: 8px; color: var(--lime); font-size: .92rem; margin: var(--space-3) 0 0; position: relative; }
+  .clear .dot, .private .dot { background: var(--lime); margin-top: 0; }
+  .actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-3); position: relative; }
+  .btn { min-height: var(--tap); padding: 0 20px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); background: var(--panel-2); color: var(--text); font: 650 .95rem var(--font); cursor: pointer; transition: border-color .15s ease; }
+  .btn:hover { border-color: var(--faint); }
+  .btn.primary { background: var(--lime); border-color: var(--lime); color: var(--lime-ink); flex: 1 1 180px; }
+  .btn.primary:hover { filter: brightness(1.06); }
+  .btn[data-done="true"] { background: var(--panel-2); color: var(--lime); border-color: var(--lime); }
+  .status { color: var(--muted); font-size: .9rem; }
+  .status:empty { display: none; }
+  .manual { width: 100%; margin-top: var(--space-2); padding: 10px 12px; font: 500 .82rem/1.5 var(--mono); color: var(--text); background: var(--ink); border: 1px solid var(--lime); border-radius: var(--radius-sm); resize: vertical; }
+
+  /* Inputs */
+  .inputs { grid-area: inputs; display: grid; gap: var(--space-2); }
+  form { display: grid; gap: var(--space-2); }
+  form[hidden] { display: none; }
+  fieldset { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); margin: 0; padding: var(--space-2) var(--space-3) var(--space-1); min-width: 0; }
+  legend { padding: 0 6px; margin-left: -6px; }
+  .field { display: grid; grid-template-columns: 1fr minmax(120px, 44%); align-items: center; gap: var(--space-2); padding: var(--space-2) 0; border-top: 1px solid var(--line); }
+  legend + .field { border-top: 0; }
+  .field label { font-weight: 600; font-size: .95rem; }
+  .field label small { display: block; font-weight: 400; color: var(--faint); font-size: .8rem; margin-top: 2px; }
+  .box { position: relative; }
+  .box input, select {
+    width: 100%; min-height: var(--tap); padding: 0 40px 0 14px;
+    font: 600 1.05rem var(--font); color: var(--text); text-align: right; font-variant-numeric: tabular-nums;
+    background: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+    transition: border-color .15s ease;
+  }
+  select { padding: 0 14px; text-align: left; cursor: pointer; }
+  .box input:hover, select:hover { border-color: var(--faint); }
+  .box input:focus, select:focus { border-color: var(--lime); outline: none; box-shadow: 0 0 0 3px var(--lime-soft); }
+  .box input[aria-invalid="true"] { border-color: var(--coral); }
+  .box .unit { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--faint); font: 600 .85rem var(--mono); pointer-events: none; }
+  .error { grid-column: 1 / -1; color: var(--coral); font-size: .8rem; }
+  .error:empty { display: none; }
+  .presets { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+  .presets button { min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--panel-2); color: var(--muted); font: 600 .85rem var(--mono); cursor: pointer; }
+  .presets button[aria-pressed="true"] { border-color: var(--lime); color: var(--lime); }
+  details { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); padding: var(--space-2) var(--space-3); }
+  summary { cursor: pointer; font-weight: 600; font-size: .92rem; color: var(--muted); min-height: 28px; display: flex; align-items: center; }
+  details[open] summary { margin-bottom: var(--space-1); }
+  details .field:first-of-type { border-top: 0; }
+
+  .math { grid-area: math; color: var(--muted); font-size: .88rem; line-height: 1.6; padding: var(--space-3); }
+  .math p { margin: 0 0 var(--space-2); }
+  .math p:last-child { margin-bottom: 0; }
+  .math b { color: var(--text); }
+  footer { margin-top: var(--space-4); }
+  @media (max-width: 520px) { .tiles { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 380px) { .field { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main class="tool">
+  <header class="top">
+    <span class="label">Free tool · Day 10 of 10</span>
+    <h1>A/B test <span>calculator</span> in plain English</h1>
+    <p>Type what your test has so far. You get one sentence back: who is ahead, how sure you can be, and what to do next.</p>
+    <p class="private"><span class="dot"></span>Everything stays in your browser. Nothing is uploaded.</p>
+  </header>
+
+  <div class="modes" role="tablist" aria-label="Mode">
+    <button type="button" role="tab" id="tab-check" aria-controls="check" aria-selected="true">Check my test</button>
+    <button type="button" role="tab" id="tab-plan" aria-controls="plan" aria-selected="false" tabindex="-1">Plan a test</button>
+  </div>
+
+  <div class="layout">
+    <section class="hero panel" id="hero" data-state="look" aria-live="polite">
+      <div class="row">
+        <span class="label" id="out-title">The verdict</span>
+        <span class="chip" id="out-chip">Not sure yet</span>
+      </div>
+      <p class="sentence" id="out-sentence">–</p>
+      <div class="traffic">
+        <div class="row"><label for="traffic">Daily visitors</label><output id="traffic-out" for="traffic">–</output></div>
+        <input type="range" id="traffic" min="0.25" max="5" step="0.25" value="1">
+        <small id="traffic-note">Drag to see how more or less traffic changes the days left.</small>
+      </div>
+      <div class="tiles" id="tiles"></div>
+      <ul class="checks" id="checks" aria-label="Checks"></ul>
+      <p class="clear" id="clear" hidden><span class="dot"></span><span id="clear-text">Nothing to flag.</span></p>
+      <div class="actions">
+        <button type="button" class="btn primary" id="copy" title="Copy summary (Ctrl+Enter)">Copy summary</button>
+        <span class="status" id="copy-status" aria-live="polite"></span>
+      </div>
+      <textarea class="manual" id="copy-manual" rows="6" readonly hidden aria-label="The summary, selected for copying"></textarea>
+    </section>
+
+    <div class="inputs">
+      <form id="check" role="tabpanel" aria-labelledby="tab-check" novalidate>
+        <fieldset>
+          <legend class="label">Version A · the original</legend>
+          <div class="field"><label for="visitorsA">Visitors<small>People who saw A</small></label><div class="box"><input id="visitorsA" inputmode="numeric"></div><span class="error" id="visitorsA-error"></span></div>
+          <div class="field"><label for="conversionsA">Conversions<small>Orders, sign-ups, clicks</small></label><div class="box"><input id="conversionsA" inputmode="numeric"></div><span class="error" id="conversionsA-error"></span></div>
+        </fieldset>
+        <fieldset>
+          <legend class="label">Version B · the change</legend>
+          <div class="field"><label for="visitorsB">Visitors<small>People who saw B</small></label><div class="box"><input id="visitorsB" inputmode="numeric"></div><span class="error" id="visitorsB-error"></span></div>
+          <div class="field"><label for="conversionsB">Conversions<small>Same goal as A</small></label><div class="box"><input id="conversionsB" inputmode="numeric"></div><span class="error" id="conversionsB-error"></span></div>
+        </fieldset>
+        <fieldset>
+          <legend class="label">The test so far</legend>
+          <div class="field"><label for="days">Days running<small>Since the test started</small></label><div class="box"><input id="days" inputmode="numeric"><span class="unit">days</span></div><span class="error" id="days-error"></span></div>
+        </fieldset>
+      </form>
+
+      <form id="plan" role="tabpanel" aria-labelledby="tab-plan" novalidate hidden>
+        <fieldset>
+          <legend class="label">Your page today</legend>
+          <div class="field"><label for="baseline">Conversion rate now<small>Orders ÷ visitors</small></label><div class="box"><input id="baseline" inputmode="decimal" value="3"><span class="unit">%</span></div><span class="error" id="baseline-error"></span></div>
+          <div class="field"><label for="daily">Daily visitors<small>Both versions together</small></label><div class="box"><input id="daily" inputmode="numeric" value="3,450"></div><span class="error" id="daily-error"></span></div>
+        </fieldset>
+        <fieldset>
+          <legend class="label">What you want to catch</legend>
+          <div class="field"><label for="lift">Smallest lift you care about<small>Relative: 10% turns 3% into 3.3%</small></label><div class="box"><input id="lift" inputmode="decimal" value="10"><span class="unit">%</span></div>
+            <div class="presets" id="presets" aria-label="Lift presets"><button type="button" data-lift="5">+5%</button><button type="button" data-lift="10">+10%</button><button type="button" data-lift="20">+20%</button></div>
+            <span class="error" id="lift-error"></span></div>
+        </fieldset>
+      </form>
+
+      <details id="advanced">
+        <summary>Advanced: confidence and power</summary>
+        <div class="field"><label for="confidence">Confidence<small>How sure before you call a win</small></label><select id="confidence"><option value="0.9">90%</option><option value="0.95" selected>95% (standard)</option><option value="0.99">99%</option></select></div>
+        <div class="field"><label for="power">Power<small>Chance to catch a real lift</small></label><select id="power"><option value="0.8" selected>80% (standard)</option><option value="0.9">90%</option></select></div>
+      </details>
+    </div>
+
+    <section class="math panel">
+      <p><b>How the maths works.</b> A and B are compared with a two-proportion z-test (the standard test for conversion rates). “Sure” means the result passes your confidence level (95% unless you change it) after the test has the visitors it needs and has run whole weeks. “Fairly sure” means it passes, but the test isn’t finished, so it could still be luck. The range on the lift is the interval, at the same confidence, of the ratio of the two rates.</p>
+      <p><b>Visitors needed and days left.</b> The visitors each version needs comes from the standard sample-size formula (the one R’s <code>power.prop.test</code> uses) at 80% power for the lift you see today. Days left = the visitors still missing ÷ visitors per version per day, never less than a full week. If the real lift is smaller than today’s, it will take longer. Past 8 weeks the tool calls it a tie.</p>
+      <p><b>The checks.</b> A split far from 50/50 is tested with a chi-square test and flagged below 1 in 1,000 (a “sample ratio mismatch”: something in the setup is broken). Stopping as soon as it looks significant (peeking) is flagged until the planned sample is reached, as are tests under a week, part weeks and tiny counts.</p>
+      <p><b>What it assumes.</b> A fixed-length test you read once at the end, one main metric, two versions split 50/50, and visitors counted once each. It doesn’t do Bayesian or sequential testing, more than two versions, or revenue per visitor.</p>
+      <p><b>Sources.</b> Fleiss, Levin &amp; Paik, <i>Statistical Methods for Rates and Proportions</i> (2003); Katz et al., <i>Biometrics</i> (1978); R’s <code>power.prop.test</code>; Kohavi, Tang &amp; Xu, <i>Trustworthy Online Controlled Experiments</i> (2020); Fabijan et al., KDD (2019); Evan Miller, “How Not To Run an A/B Test” (2010).</p>
+    </section>
+  </div>
+
+  <footer>
+    <a class="made" href="https://omniscio.com" target="_blank" rel="noopener"><img src="../../docs/orb.png" alt="" width="24" height="24"><span>Built with <b>Omniscio</b></span></a>
+  </footer>
+</main>
+<script src="calc.js"></script>
+<script>
+  (function () {
+    'use strict';
+    const { CHECK_FIELDS, PLAN_FIELDS, EXAMPLE, readCheck, readPlan, checkTest, planTest, checkSummary, planSummary, confidenceText, roundUpWeek } = window.AbCalc;
+    const COPIED_MS = 1600;
+    const COPY_KEY = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘C' : 'Ctrl+C';
+    const MESSAGES = {
+      notANumber: 'Enter a number', negative: 'Can’t be negative', notWhole: 'Use a whole number',
+      needVisitors: 'Needs at least 1 visitor', needDays: 'At least 1 day', moreThanVisitors: 'More than the visitors',
+      needRate: 'Between 0 and 100', needLift: 'More than 0', overHundred: 'That lift would pass 100%',
+      fixInputs: 'Fix the highlighted boxes to see the answer.',
+      chip: { broken: 'Broken', noData: 'No data yet', win: 'Sure', early: 'Fairly sure', keepGoing: 'Not sure yet', tie: 'Tie' },
+      where: { fix: 'Don’t trust this yet', look: 'Worth a look' },
+      clearCheck: 'Nothing to flag: the split, the sample and the timing all look fine.',
+      clearPlan: 'Reachable in a normal test length.',
+      copy: 'Copy summary', copied: 'Copied ✓',
+      manual: `Your browser blocked copying here. The text is selected: press ${COPY_KEY}.`
+    };
+    const int = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
+    const $ = (id) => document.getElementById(id);
+    const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+    const signedPct = (x) => `${x < 0 ? '−' : '+'}${Math.abs(x * 100).toFixed(1)}%`;
+    let mode = 'check';
+    let summary = '';
+
+    const options = () => ({ confidence: Number($('confidence').value), power: Number($('power').value), multiplier: Number($('traffic').value) });
+    const readFields = (fields) => Object.fromEntries(fields.map((name) => [name, $(name).value]));
+
+    function showErrors(fields, errors) {
+      for (const name of fields) {
+        $(name).setAttribute('aria-invalid', errors[name] ? 'true' : 'false');
+        $(`${name}-error`).textContent = errors[name] ? MESSAGES[errors[name]] : '';
+      }
+      return Object.keys(errors).length === 0;
+    }
+
+    function tile(label, value, note) {
+      const node = el('div', 'tile');
+      node.append(el('span', 'label', label), el('b', 'num', value), el('small', null, note));
+      return node;
+    }
+
+    function showChecks(checks, clearText) {
+      $('checks').replaceChildren(...checks.map((c) => {
+        const item = el('li', 'check');
+        item.dataset.level = c.level;
+        const body = el('span');
+        body.append(el('span', 'where', MESSAGES.where[c.level]), document.createTextNode(c.text));
+        item.append(el('span', 'dot'), body);
+        return item;
+      }));
+      $('clear').hidden = checks.length > 0;
+      $('clear-text').textContent = clearText;
+    }
+
+    function stateOf(checks, good) {
+      if (checks.some((c) => c.level === 'fix')) return 'fix';
+      return good && checks.length === 0 ? 'ok' : 'look';
+    }
+
+    function showHero({ title, chip, sentence, state, tiles }) {
+      $('out-title').textContent = title;
+      $('out-chip').textContent = chip;
+      $('out-sentence').textContent = sentence;
+      $('hero').dataset.state = state;
+      $('tiles').replaceChildren(...tiles.map((t) => tile(...t)));
+    }
+
+    function showBlocked() {
+      showHero({ title: 'The verdict', chip: 'Waiting', sentence: MESSAGES.fixInputs, state: 'look', tiles: [] });
+      showChecks([], '');
+      $('clear').hidden = true;
+      summary = '';
+    }
+
+    function setTraffic(perDay) {
+      const m = Number($('traffic').value);
+      $('traffic-out').textContent = `${m === 1 ? 'today’s' : `${m}×`} · ${int.format(perDay * m)} a day`;
+    }
+
+    // --- Check my test ---
+    function daysTile(r) {
+      if (r.daysLeft === 0) return ['Days left', 'None', 'sample reached'];
+      if (!r.reachable) return ['Days left', '8+ weeks', 'too long to wait'];
+      return ['Days left', int.format(r.daysLeft), `stop on day ${roundUpWeek(r.values.days + r.daysLeft)}`];
+    }
+
+    function checkTiles(r) {
+      const rate = (n, c) => `${(c / n * 100).toFixed(2)}%`;
+      const v = r.values;
+      return [
+        ['A converts', rate(v.visitorsA, v.conversionsA), `${int.format(v.conversionsA)} of ${int.format(v.visitorsA)}`],
+        ['B converts', rate(v.visitorsB, v.conversionsB), `${int.format(v.conversionsB)} of ${int.format(v.visitorsB)}`],
+        ['Lift for B', r.lift === null ? '–' : signedPct(r.lift), r.lift === null ? 'needs conversions' : `range ${signedPct(r.low)} to ${signedPct(r.high)}`],
+        ['Confidence', confidenceText(r.confidence), `need ${Math.round(options().confidence * 100)}%`],
+        ['Needed', Number.isFinite(r.neededPerVariant) ? int.format(r.neededPerVariant) : '–', 'visitors per version'],
+        daysTile(r)
+      ];
+    }
+
+    function updateCheck() {
+      const { values, errors } = readCheck(readFields(CHECK_FIELDS));
+      if (!showErrors(CHECK_FIELDS, errors)) return showBlocked();
+      const r = checkTest(values, options());
+      setTraffic((values.visitorsA + values.visitorsB) / values.days);
+      showHero({ title: 'The verdict', chip: MESSAGES.chip[r.verdict], sentence: r.sentence, state: stateOf(r.checks, r.verdict === 'win'), tiles: checkTiles(r) });
+      showChecks(r.checks, MESSAGES.clearCheck);
+      summary = checkSummary(r, options());
+    }
+
+    // --- Plan a test ---
+    function updatePlan() {
+      const { values, errors } = readPlan(readFields(PLAN_FIELDS));
+      for (const b of $('presets').children) b.setAttribute('aria-pressed', String(Number(b.dataset.lift) === values.lift));
+      if (!showErrors(PLAN_FIELDS, errors)) return showBlocked();
+      setTraffic(values.daily);
+      const scaled = { ...values, daily: Math.max(1, Math.round(values.daily * options().multiplier)) };
+      const p = planTest(scaled, options());
+      showHero({
+        title: 'Your test plan', chip: p.tooLong ? 'Too long' : `${p.weeks} ${p.weeks === 1 ? 'week' : 'weeks'}`, sentence: p.sentence,
+        state: p.tooLong ? 'fix' : 'ok',
+        tiles: [['Per version', int.format(p.perVariant), 'visitors'], ['In total', int.format(p.total), 'visitors'], ['Run for', `${p.weeks} wk`, `${int.format(p.days)} days of traffic`]]
+      });
+      showChecks(p.checks, MESSAGES.clearPlan);
+      summary = planSummary(p, scaled, options());
+    }
+
+    const update = () => (mode === 'check' ? updateCheck() : updatePlan());
+
+    // --- Copy: Clipboard API, then the older copy command, then select the text for the person ---
+    async function copyText(text, manualBox) {
+      manualBox.hidden = true;
+      try { await navigator.clipboard.writeText(text); return true; } catch { /* blocked: try the next way */ }
+      const scratch = el('textarea');
+      scratch.value = text;
+      scratch.setAttribute('readonly', '');
+      scratch.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+      const focused = document.activeElement;
+      document.body.append(scratch);
+      scratch.focus();
+      scratch.select();
+      let copied = false;
+      try { copied = document.execCommand('copy'); } catch { /* unsupported: leave false */ }
+      scratch.remove();
+      if (focused) focused.focus();
+      if (copied) return true;
+      manualBox.value = text;
+      manualBox.hidden = false;
+      manualBox.focus();
+      manualBox.select();
+      return false;
+    }
+
+    async function copySummary() {
+      if (!summary) return;
+      const button = $('copy');
+      const copied = await copyText(summary, $('copy-manual'));
+      $('copy-status').textContent = copied ? '' : MESSAGES.manual;
+      if (!copied) return;
+      button.textContent = MESSAGES.copied;
+      button.dataset.done = 'true';
+      setTimeout(() => { button.textContent = MESSAGES.copy; button.dataset.done = 'false'; }, COPIED_MS);
+    }
+
+    // --- Mode switch (tabs with arrow-key support) ---
+    const tabs = [$('tab-check'), $('tab-plan')];
+    function selectTab(tab) {
+      for (const t of tabs) {
+        const on = t === tab;
+        t.setAttribute('aria-selected', String(on));
+        t.tabIndex = on ? 0 : -1;
+        $(t.getAttribute('aria-controls')).hidden = !on;
+      }
+      mode = tab.getAttribute('aria-controls');
+      $('copy-manual').hidden = true;
+      $('copy-status').textContent = '';
+      update();
+    }
+    tabs.forEach((t, n) => {
+      t.addEventListener('click', () => selectTab(t));
+      t.addEventListener('keydown', (e) => {
+        if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+        const next = tabs[(n + 1) % tabs.length];
+        selectTab(next);
+        next.focus();
+      });
+    });
+
+    for (const name of CHECK_FIELDS) $(name).value = EXAMPLE[name];
+    for (const id of ['check', 'plan', 'advanced']) $(id).addEventListener('input', update);
+    for (const id of ['check', 'plan']) $(id).addEventListener('submit', (e) => e.preventDefault());
+    $('traffic').addEventListener('input', update);
+    $('presets').addEventListener('click', (e) => {
+      const lift = e.target.closest('button[data-lift]');
+      if (lift) { $('lift').value = lift.dataset.lift; update(); }
+    });
+    $('copy').addEventListener('click', copySummary);
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); copySummary(); }
+    });
+    update();
+  })();
+</script>
+</body>
+</html>

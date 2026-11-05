@@ -187,6 +187,16 @@ test('significant before the planned sample is peeking: fairly sure, keep going'
   assert.equal(r.sure, 'fairly sure');
   assert.match(r.sentence, /^B converts 28% better than A, and you can be fairly sure, but it’s too early to call\. Keep it running about \d+ more days at your current traffic\.$/);
   assert.ok(levels(r).includes('fix:peeking'));
+  assert.match(r.checks.find((c) => c.code === 'peeking').text, /haven’t reached the visitors you need/);
+});
+
+test('significant with the sample reached but under a week is still peeking, and says why', () => {
+  const r = run({ visitorsA: 8650, conversionsA: 260, visitorsB: 8610, conversionsB: 340, days: 5 });
+  assert.ok(r.significant && r.sampleReached, `p ${r.pValue}, needed ${r.neededPerVariant}`);
+  assert.equal(r.daysLeft, 2);
+  const peeking = r.checks.find((c) => c.code === 'peeking');
+  assert.ok(peeking, levels(r).join(', '));
+  assert.match(peeking.text, /has the visitors, but not the full week yet/);
 });
 
 test('a huge lift on tiny numbers is never called a win', () => {

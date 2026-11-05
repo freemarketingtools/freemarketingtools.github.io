@@ -237,7 +237,7 @@
   const CHECK_TEXT = {
     srm: (d) => `The split is ${pct(d.shareA)} / ${pct(1 - d.shareA)}, not 50/50, and the odds of that by chance are under 1 in 1,000. Something sends visitors unevenly (a redirect, a cache, bots), so the test is broken.`,
     tooFew: (d) => `${d.side} has only ${plural(d.conversions, 'conversion')}. Under ${MIN_CONVERSIONS} the maths isn’t reliable: a couple of orders swing everything.`,
-    peeking: () => 'It looks significant, but you haven’t reached the visitors you need yet. Stopping the moment it turns green is called peeking, and it makes false wins far more likely. Run it to the planned end.',
+    peeking: (d) => `It looks significant, but ${d.sampleReached ? 'the test has the visitors, but not the full week yet' : 'you haven’t reached the visitors you need yet'}. Stopping the moment it turns green is called peeking, and it makes false wins far more likely. Run it to the planned end.`,
     short: (d) => `Only ${plural(d.days, 'day')} in. Run at least a full week so weekdays and weekends both count.`,
     partialWeek: (d) => `${plural(d.days, 'day')} isn’t a whole number of weeks, so some weekdays count more than others. Stop on day ${d.weekEnd}.`,
     smallNumbers: (d) => `With ${int.format(d.conversions)} conversions in ${d.side}, one more or one less moves the lift by about ${Math.round(d.points)} points.`,
@@ -250,7 +250,7 @@
     const found = [
       s.srm.mismatch && ['fix', 'srm', { shareA: s.srm.shareA }],
       fewest < MIN_CONVERSIONS && ['fix', 'tooFew', { side: v.conversionsB < v.conversionsA ? 'B' : 'A', conversions: fewest }],
-      s.significant && s.daysLeft > 0 && ['fix', 'peeking', {}],
+      s.significant && s.daysLeft > 0 && ['fix', 'peeking', { sampleReached: s.sampleReached }],
       v.days < MIN_DAYS && ['fix', 'short', { days: v.days }],
       v.days >= MIN_DAYS && v.days % WEEK !== 0 && ['look', 'partialWeek', { days: v.days, weekEnd: roundUpWeek(v.days) }],
       swing && fewest >= MIN_CONVERSIONS && fewest < STEADY_CONVERSIONS && ['look', 'smallNumbers', swing],

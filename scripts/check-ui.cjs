@@ -147,7 +147,22 @@ async function checkHub(page) {
   const shipped = await page.locator('.slot.shipped').count();
   const slots = await page.locator('.slot').count();
   if (slots !== CHALLENGE_DAYS) return `hub shows ${slots} day slots, expected ${CHALLENGE_DAYS}`;
-  return shipped === expected ? null : `hub shows ${shipped} shipped cards, tools.json has ${expected}`;
+  if (shipped !== expected) return `hub shows ${shipped} shipped cards, tools.json has ${expected}`;
+  return checkHubComplete(page);
+}
+
+// The last day: feed the hub a full list and make sure it reads as finished, not "one new tool every morning".
+async function checkHubComplete(page) {
+  const first = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs', 'tools.json'), 'utf8'))[0];
+  const full = Array.from({ length: CHALLENGE_DAYS }, (_, i) => ({ ...first, day: i + 1 }));
+  const hub = await page.context().newPage();
+  await hub.route('**/tools.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(full) }));
+  await hub.goto(page.url(), { waitUntil: 'networkidle' });
+  const read = (id) => hub.textContent(`#${id}`);
+  const seen = [await read('progress'), await read('left'), await read('cadence'), await hub.locator('.slot.shipped').count()];
+  await hub.close();
+  const wanted = [`Day ${CHALLENGE_DAYS} of ${CHALLENGE_DAYS}`, 'Complete', `All ${CHALLENGE_DAYS} tools are out`, CHALLENGE_DAYS];
+  return JSON.stringify(seen) === JSON.stringify(wanted) ? null : `a full hub reads ${JSON.stringify(seen)}`;
 }
 
 // --- SERP: the example title is cut on desktop only; edits re-measure; ad counters turn coral ---
@@ -574,7 +589,77 @@ async function checkInbox(page) {
     || await checkInboxDark(page) || await checkInboxEdits(page);
 }
 
-const TOOL_CHECKS = { roas: checkRoas, utm: checkUtm, serp: checkSerp, rsa: checkRsa, feed: checkFeed, listing: checkListing, safezone: checkSafezone, ga4: checkGa4, inbox: checkInbox };
+// --- A/B test: the example reads as "not sure yet", the slider moves the days, mistakes are named ---
+
+const AB_EXAMPLE = /^B converts 15% better than A so far, but you can’t be sure yet\. Keep it running about 10 more days at your current traffic\.$/;
+const abSentence = (page) => page.textContent('#out-sentence');
+const abState = (page) => page.getAttribute('#hero', 'data-state');
+const setSlider = (page, value) => page.$eval('#traffic', (s, v) => { s.value = v; s.dispatchEvent(new Event('input', { bubbles: true })); }, value);
+const daysIn = (text) => Number((text.match(/about (\d+) more days/) || [])[1]);
+
+async function checkAbExample(page) {
+  if (!AB_EXAMPLE.test(await abSentence(page))) return `example sentence: ${await abSentence(page)}`;
+  if (await page.textContent('#out-chip') !== 'Not sure yet' || await abState(page) !== 'fix') return 'example is not shown as not sure, with a coral check';
+  if (!/Only 5 days in/.test(await page.textContent('#checks'))) return 'the short test was not flagged';
+  if (await page.locator('#tiles .tile').count() !== 6) return 'the numbers behind the verdict are missing';
+  return null;
+}
+
+async function checkAbSlider(page) {
+  const today = daysIn(await abSentence(page));
+  await setSlider(page, '2');
+  const busier = await abSentence(page);
+  await setSlider(page, '0.5');
+  const quieter = await abSentence(page);
+  await setSlider(page, '1');
+  if (!(daysIn(busier) < today && daysIn(quieter) > today)) return `slider did not move the days: ${today} / ${busier} / ${quieter}`;
+  return /at 6,904 visitors a day\.$/.test(busier) ? null : `doubled traffic sentence: ${busier}`;
+}
+
+async function checkAbMistakes(page) {
+  await page.fill('#conversionsB', '340');
+  if (await page.textContent('#out-chip') !== 'Fairly sure' || !/peeking/.test(await page.textContent('#checks'))) return 'an early significant result was not flagged as peeking';
+  await page.fill('#visitorsB', '6000');
+  if (!/^Don’t trust this test/.test(await abSentence(page)) || !/not 50\/50/.test(await page.textContent('#checks'))) return 'a broken split was not flagged';
+  await page.fill('#conversionsA', 'lots');
+  if (await page.textContent('#conversionsA-error') !== 'Enter a number' || !/Fix the highlighted/.test(await abSentence(page))) return 'a bad number was not caught';
+  await page.fill('#conversionsA', '260');
+  await page.fill('#visitorsB', '8,610');
+  await page.fill('#conversionsB', '297');
+  return AB_EXAMPLE.test(await abSentence(page)) ? null : 'restoring the example did not restore the verdict';
+}
+
+async function checkAbAdvanced(page) {
+  const needed = () => page.textContent('#tiles .tile:nth-child(5) b');
+  const before = await needed();
+  await page.click('#advanced summary');
+  await page.selectOption('#confidence', '0.99');
+  const stricter = await needed();
+  await page.selectOption('#confidence', '0.95');
+  return Number(stricter.replace(/,/g, '')) > Number(before.replace(/,/g, '')) ? null : `99% confidence did not need more visitors: ${before} → ${stricter}`;
+}
+
+async function checkAbPlan(page) {
+  await page.click('#tab-plan');
+  if (await page.isHidden('#plan') || await page.isVisible('#check')) return 'Plan tab did not switch modes';
+  const plan = await abSentence(page);
+  if (!/^You need about [\d,]+ visitors per version .* At 3,450 visitors a day that’s \d+ days, so plan for \d+ full weeks\.$/.test(plan)) return `plan sentence: ${plan}`;
+  await page.click('#presets button[data-lift="5"]');
+  if (await page.getAttribute('#presets button[data-lift="5"]', 'aria-pressed') !== 'true') return 'the +5% preset did not apply';
+  if (!/too long for a fair test/.test(await abSentence(page)) || await abState(page) !== 'fix') return `a +5% lift at this traffic was not called too long: ${await abSentence(page)}`;
+  await setSlider(page, '5');
+  if (!/^You need about .* At 17,250 visitors a day/.test(await abSentence(page))) return `5x traffic did not make the plan reachable: ${await abSentence(page)}`;
+  const scroll = await sidewaysScroll(page);
+  return scroll > 0 ? `plan view scrolls sideways by ${scroll}px` : null;
+}
+
+async function checkAbtest(page) {
+  return await checkAbExample(page)
+    || await checkProblemListCopy(page, /^A\/B test check \(95% confidence, 80% power\)\nB converts 15% better than A so far[\s\S]*\nA: 8,650 visitors, 260 conversions \(3\.01%\)\n[\s\S]*Checks:\n- Don’t trust yet: Only 5 days in/)
+    || await checkAbSlider(page) || await checkAbMistakes(page) || await checkAbAdvanced(page) || await checkAbPlan(page);
+}
+
+const TOOL_CHECKS = { roas: checkRoas, utm: checkUtm, serp: checkSerp, rsa: checkRsa, feed: checkFeed, listing: checkListing, safezone: checkSafezone, ga4: checkGa4, inbox: checkInbox, abtest: checkAbtest };
 
 (async () => {
   const server = serve().listen(0);
