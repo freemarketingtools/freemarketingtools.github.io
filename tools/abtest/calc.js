@@ -345,8 +345,8 @@
   }
 
   return {
-    CHECK_FIELDS, PLAN_FIELDS, EXAMPLE, MAX_DAYS, MIN_DAYS,
+    CHECK_FIELDS, PLAN_FIELDS, EXAMPLE,
     normalCdf, normalQuantile, zTest, liftRange, sampleSize, power, detectableLift, srmTest,
-    readCheck, readPlan, checkTest, planTest, checkSummary, planSummary, confidenceText, roundUpWeek
+    readCheck, readPlan, checkTest, planTest, checkSummary, planSummary, confidenceText
   };
 });
