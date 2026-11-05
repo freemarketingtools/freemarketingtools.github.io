@@ -78,7 +78,7 @@
     <div class="segments" id="segments" aria-hidden="true"></div>
     <ul class="facts">
       <li>For marketers and store owners</li>
-      <li>One new tool every morning</li>
+      <li id="cadence">One new tool every morning</li>
       <li>Free, forever</li>
     </ul>
     <footer>
@@ -141,6 +141,7 @@
       const latest = tools.reduce((max, t) => Math.max(max, t.day), 0);
       document.getElementById('progress').textContent = `Day ${latest} of ${CHALLENGE_DAYS}`;
       document.getElementById('left').textContent = latest >= CHALLENGE_DAYS ? 'Complete' : `${CHALLENGE_DAYS - latest} to go`;
+      if (latest >= CHALLENGE_DAYS) document.getElementById('cadence').textContent = `All ${CHALLENGE_DAYS} tools are out`;
       const segments = document.getElementById('segments');
       for (let day = 1; day <= CHALLENGE_DAYS; day++) {
         const seg = document.createElement('i');
