@@ -88,7 +88,21 @@ ship.
   ALL CAPS, piled-up `!!!`, 3+ emoji and spam trigger words (labelled a guide, not a rule). A headline verdict
   and Copy problem list. Nothing is uploaded. Every width is a labelled estimate for a named screen size,
   sourced from each platform's type scale.
-- **The hub.** A brand column with a 10-segment progress bar, and a grid of all 10 days: shipped tools as cards with a screenshot, future days locked. A floating Made with Omniscio badge, the
+- **Day 10 — A/B test calculator in plain English.** Two modes. *Check my test*: enter visitors and
+  conversions for A and B and the days run so far, and get one sentence back, such as "B converts 15%
+  better than A so far, but you can't be sure yet. Keep it running about 16 more days at your current
+  traffic." It says who is ahead, how sure you can be ("not sure yet", "fairly sure", "sure") and what to do
+  next. Days left always lands the test on a whole week. A traffic slider moves the days left live. The
+  numbers sit underneath: both conversion rates, the lift with its range, confidence, visitors needed per
+  version and the stop day. Coral flags peeking (significant before the planned end), a test under a week,
+  a split far from 50/50 (a chi-square test for sample ratio mismatch) and under 10 conversions. Amber flags
+  part weeks, small counts where one order swings the lift, and lifts too small to show within 8 weeks.
+  *Plan a test*: conversion rate now, the smallest lift you care about (+5/10/20% presets) and daily
+  visitors give the visitors per version and the whole weeks to run. Standard statistics: a two-proportion
+  z-test, 95% confidence and 80% power by default (changeable under Advanced), and R's `power.prop.test`
+  sample size. It assumes a fixed-length test with one main metric. The tests check the maths against
+  published values. Copy summary gives a Slack-ready verdict with the numbers. Nothing is uploaded.
+- **The hub.** A brand column with a 10-segment progress bar, and a grid of all 10 days: shipped tools as cards with a screenshot, future days locked. When all 10 are listed it reads "Day 10 of 10 · Complete" and "All 10 tools are out". A floating Made with Omniscio badge, the
   same one an Omniscio Share carries, and a link preview in the hub's own look that stays neutral for X.
 - **Phone-first.** Every page is checked at 390 px wide with no sideways scrolling.
 - **No accounts, no tracking, nothing stored.** Each tool runs entirely in the browser.
@@ -144,7 +158,9 @@ npm run check:ui      # phone + desktop checks (needs Playwright + Chrome)
    missing from `TOOL_CHECKS` is not checked at all).
 2. `npm run build`, then `node scripts/render-shots.cjs` for the card thumbnail, then `npm run check:ui`.
    The page check serves each tool under the Share's sandbox rules; if the tool copies to the
-   clipboard, test every fallback (see the UTM tool's checks).
+   clipboard, test every fallback (see the UTM tool's checks). The `PASS` or `FAIL` line is the verdict.
+   On a busy machine the script can occasionally hang after printing it, while the browser shuts down.
+   The verdict has already been printed, so stop the script and keep it.
 3. Publish `dist/<name>.html` as an Omniscio Share that never expires. Its `url` is the
    `https://shares.omniscio.com/s/<token>` address, never the `omnisc.io` short link: that is a
    second domain, and when it fails to resolve the hub's Open tool button goes nowhere.
