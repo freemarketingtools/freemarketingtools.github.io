@@ -180,7 +180,7 @@
 
     <section class="math panel">
       <p><b>How the maths works.</b> A and B are compared with a two-proportion z-test (the standard test for conversion rates). “Sure” means the result passes your confidence level (95% unless you change it) after the test has the visitors it needs and has run whole weeks. “Fairly sure” means it passes, but the test isn’t finished, so it could still be luck. The range on the lift is the interval, at the same confidence, of the ratio of the two rates.</p>
-      <p><b>Visitors needed and days left.</b> The visitors each version needs comes from the standard sample-size formula (the one R’s <code>power.prop.test</code> uses) at 80% power for the lift you see today. Days left = the visitors still missing ÷ visitors per version per day, never less than a full week. If the real lift is smaller than today’s, it will take longer. Past 8 weeks the tool calls it a tie.</p>
+      <p><b>Visitors needed and days left.</b> The visitors each version needs comes from the standard sample-size formula (the one R’s <code>power.prop.test</code> uses) at 80% power for the lift you see today. Days left = the visitors still missing ÷ visitors per version per day, never less than a full week, then rounded up so the test stops at the end of a whole week. If the real lift is smaller than today’s, it will take longer. Past 8 weeks the tool calls it a tie.</p>
       <p><b>The checks.</b> A split far from 50/50 is tested with a chi-square test and flagged below 1 in 1,000 (a “sample ratio mismatch”: something in the setup is broken). Stopping as soon as it looks significant (peeking) is flagged until the planned sample is reached, as are tests under a week, part weeks and tiny counts.</p>
       <p><b>What it assumes.</b> A fixed-length test you read once at the end, one main metric, two versions split 50/50, and visitors counted once each. It doesn’t do Bayesian or sequential testing, more than two versions, or revenue per visitor.</p>
       <p><b>Sources.</b> Fleiss, Levin &amp; Paik, <i>Statistical Methods for Rates and Proportions</i> (2003); Katz et al., <i>Biometrics</i> (1978); R’s <code>power.prop.test</code>; Kohavi, Tang &amp; Xu, <i>Trustworthy Online Controlled Experiments</i> (2020); Fabijan et al., KDD (2019); Evan Miller, “How Not To Run an A/B Test” (2010).</p>
@@ -195,7 +195,7 @@
 <script>
   (function () {
     'use strict';
-    const { CHECK_FIELDS, PLAN_FIELDS, EXAMPLE, readCheck, readPlan, checkTest, planTest, checkSummary, planSummary, confidenceText, roundUpWeek } = window.AbCalc;
+    const { CHECK_FIELDS, PLAN_FIELDS, EXAMPLE, readCheck, readPlan, checkTest, planTest, checkSummary, planSummary, confidenceText } = window.AbCalc;
     const COPIED_MS = 1600;
     const COPY_KEY = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘C' : 'Ctrl+C';
     const MESSAGES = {
@@ -276,7 +276,7 @@
     function daysTile(r) {
       if (r.daysLeft === 0) return ['Days left', 'None', 'sample reached'];
       if (!r.reachable) return ['Days left', '8+ weeks', 'too long to wait'];
-      return ['Days left', int.format(r.daysLeft), `stop on day ${roundUpWeek(r.values.days + r.daysLeft)}`];
+      return ['Days left', int.format(r.daysLeft), `stop on day ${r.values.days + r.daysLeft}`];
     }
 
     function checkTiles(r) {

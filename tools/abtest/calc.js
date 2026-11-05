@@ -217,7 +217,9 @@
     const { perVariantDaily, traffic } = pace(v, multiplier);
     const remaining = Math.max(0, needed - Math.min(v.visitorsA, v.visitorsB));
     const sampleDays = Number.isFinite(remaining) ? Math.ceil(remaining / perVariantDaily) : Infinity;
-    const daysLeft = Math.max(sampleDays, MIN_DAYS - v.days, 0);
+    const rawLeft = Math.max(sampleDays, MIN_DAYS - v.days, 0);
+    // Still running: stop at the end of a whole week, so every weekday counts the same.
+    const daysLeft = rawLeft > 0 ? roundUpWeek(v.days + rawLeft) - v.days : 0;
     return { daysLeft, sampleReached: remaining === 0, reachable: v.days + daysLeft <= MAX_DAYS, traffic };
   }
 

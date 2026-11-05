@@ -151,9 +151,22 @@ test('the prefilled example looks like a win but is not significant yet, with da
   assert.equal(r.leader, 'B');
   assert.equal(r.sure, 'not sure yet');
   assert.ok(r.confidence > 0.85 && r.confidence < 0.95, `looks close to a win: ${r.confidence}`);
-  assert.ok(r.daysLeft >= 7 && r.daysLeft <= 14, `days left ${r.daysLeft}`);
-  assert.match(r.sentence, /^B converts 1\d% better than A so far, but you can’t be sure yet\. Keep it running about \d+ more days at your current traffic\.$/);
+  // 10 more days of visitors would end on day 15, so the honest stop is the end of week 3.
+  assert.equal(r.daysLeft, 16);
+  assert.equal(r.sentence, 'B converts 15% better than A so far, but you can’t be sure yet. Keep it running about 16 more days at your current traffic.');
   assert.deepEqual(levels(r), ['fix:short']);
+});
+
+test('the days in the sentence always land the test on a whole-week stop day', () => {
+  const values = readCheck(EXAMPLE).values;
+  const expected = { 0.5: 23, 1: 16, 2: 9, 4: 9 };
+  for (const [multiplier, days] of Object.entries(expected)) {
+    const r = run(values, { multiplier: Number(multiplier) });
+    const said = Number(r.sentence.match(/about (\d+) more days/)[1]);
+    assert.equal(said, r.daysLeft, `at ${multiplier}x the sentence says ${said}, days left is ${r.daysLeft}`);
+    assert.equal(r.daysLeft, days, `at ${multiplier}x`);
+    assert.equal((values.days + r.daysLeft) % 7, 0, `at ${multiplier}x the stop day ${values.days + r.daysLeft} is not a whole week`);
+  }
 });
 
 test('more traffic shortens the days left, less traffic lengthens them', () => {

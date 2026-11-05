@@ -591,11 +591,22 @@ async function checkInbox(page) {
 
 // --- A/B test: the example reads as "not sure yet", the slider moves the days, mistakes are named ---
 
-const AB_EXAMPLE = /^B converts 15% better than A so far, but you can’t be sure yet\. Keep it running about 10 more days at your current traffic\.$/;
+const AB_EXAMPLE = /^B converts 15% better than A so far, but you can’t be sure yet\. Keep it running about 16 more days at your current traffic\.$/;
+const AB_DAYS_RUN = 5;
 const abSentence = (page) => page.textContent('#out-sentence');
 const abState = (page) => page.getAttribute('#hero', 'data-state');
-const setSlider = (page, value) => page.$eval('#traffic', (s, v) => { s.value = v; s.dispatchEvent(new Event('input', { bubbles: true })); }, value);
 const daysIn = (text) => Number((text.match(/about (\d+) more days/) || [])[1]);
+
+const setSlider = (page, value) => page.$eval('#traffic', (s, v) => { s.value = v; s.dispatchEvent(new Event('input', { bubbles: true })); }, value);
+
+// Check mode: after a slide, the sentence, the Days left tile and its stop day all tell the same whole-week story.
+async function slideAndCompare(page, value) {
+  await setSlider(page, value);
+  const said = daysIn(await abSentence(page));
+  const tile = Number(await page.textContent('#tiles .tile:nth-child(6) b'));
+  const stop = Number((await page.textContent('#tiles .tile:nth-child(6) small')).replace('stop on day ', ''));
+  return said === tile && stop === AB_DAYS_RUN + said && stop % 7 === 0 ? null : `at ${value}x the sentence says ${said} days, the tile ${tile}, stop on day ${stop}`;
+}
 
 async function checkAbExample(page) {
   if (!AB_EXAMPLE.test(await abSentence(page))) return `example sentence: ${await abSentence(page)}`;
@@ -608,11 +619,13 @@ async function checkAbExample(page) {
 
 async function checkAbSlider(page) {
   const today = daysIn(await abSentence(page));
-  await setSlider(page, '2');
-  const busier = await abSentence(page);
-  await setSlider(page, '0.5');
-  const quieter = await abSentence(page);
-  await setSlider(page, '1');
+  const read = async (value) => [await slideAndCompare(page, value), await abSentence(page)];
+  const [busierProblem, busier] = await read('2');
+  const [quieterProblem, quieter] = await read('0.5');
+  const [fastProblem] = await read('4');
+  const [todayProblem] = await read('1');
+  const mismatch = busierProblem || quieterProblem || fastProblem || todayProblem;
+  if (mismatch) return mismatch;
   if (!(daysIn(busier) < today && daysIn(quieter) > today)) return `slider did not move the days: ${today} / ${busier} / ${quieter}`;
   return /at 6,904 visitors a day\.$/.test(busier) ? null : `doubled traffic sentence: ${busier}`;
 }
