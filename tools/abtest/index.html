@@ -64,7 +64,7 @@
   /* Inputs */
   .inputs { grid-area: inputs; display: grid; gap: var(--space-2); }
   form { display: grid; gap: var(--space-2); }
-  form[hidden] { display: none; }
+  [hidden] { display: none !important; }
   fieldset { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); margin: 0; padding: var(--space-2) var(--space-3) var(--space-1); min-width: 0; }
   legend { padding: 0 6px; margin-left: -6px; }
   .field { display: grid; grid-template-columns: 1fr minmax(120px, 44%); align-items: center; gap: var(--space-2); padding: var(--space-2) 0; border-top: 1px solid var(--line); }
@@ -82,6 +82,7 @@
   .box input:hover, select:hover { border-color: var(--faint); }
   .box input:focus, select:focus { border-color: var(--lime); outline: none; box-shadow: 0 0 0 3px var(--lime-soft); }
   .box input[aria-invalid="true"] { border-color: var(--coral); }
+  .box input.worded { padding-right: 64px; }
   .box .unit { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--faint); font: 600 .85rem var(--mono); pointer-events: none; }
   .error { grid-column: 1 / -1; color: var(--coral); font-size: .8rem; }
   .error:empty { display: none; }
@@ -152,7 +153,7 @@
         </fieldset>
         <fieldset>
           <legend class="label">The test so far</legend>
-          <div class="field"><label for="days">Days running<small>Since the test started</small></label><div class="box"><input id="days" inputmode="numeric"><span class="unit">days</span></div><span class="error" id="days-error"></span></div>
+          <div class="field"><label for="days">Days running<small>Since the test started</small></label><div class="box"><input id="days" class="worded" inputmode="numeric"><span class="unit">days</span></div><span class="error" id="days-error"></span></div>
         </fieldset>
       </form>
 

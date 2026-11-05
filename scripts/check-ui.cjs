@@ -601,6 +601,7 @@ async function checkAbExample(page) {
   if (!AB_EXAMPLE.test(await abSentence(page))) return `example sentence: ${await abSentence(page)}`;
   if (await page.textContent('#out-chip') !== 'Not sure yet' || await abState(page) !== 'fix') return 'example is not shown as not sure, with a coral check';
   if (!/Only 5 days in/.test(await page.textContent('#checks'))) return 'the short test was not flagged';
+  if (await page.isVisible('#clear')) return '"Nothing to flag" shows next to a coral check';
   if (await page.locator('#tiles .tile').count() !== 6) return 'the numbers behind the verdict are missing';
   return null;
 }
