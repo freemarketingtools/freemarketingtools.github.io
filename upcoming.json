@@ -1,1 +1,9 @@
-[]
+[
+  {
+    "day": 10,
+    "name": "A/B test calculator in plain English",
+    "blurb": "Type in your test so far and get one sentence back: who is ahead, how sure you can be, and how many more days it needs at your traffic. Catches peeking, tests under a week, a broken 50/50 split and lifts too small to ever show.",
+    "url": "https://shares.omniscio.com/s/adcdd4c55b9c67d71833085ab2ba872ccf6b6b19b0944f7d812b96dcf193c54d",
+    "shot": "shots/abtest.png"
+  }
+]
